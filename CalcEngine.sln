@@ -1,0 +1,28 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalcEngine.Core", "CalcEngine.Core\CalcEngine.Core.csproj", "{4EC4719F-9997-4852-9702-D1B6E661E0B3}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalcEngine.Tests", "CalcEngine.Tests\CalcEngine.Tests.csproj", "{B7C98226-41EB-483B-828F-9A94B5427787}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{4EC4719F-9997-4852-9702-D1B6E661E0B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4EC4719F-9997-4852-9702-D1B6E661E0B3}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4EC4719F-9997-4852-9702-D1B6E661E0B3}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4EC4719F-9997-4852-9702-D1B6E661E0B3}.Release|Any CPU.Build.0 = Release|Any CPU
+		{B7C98226-41EB-483B-828F-9A94B5427787}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B7C98226-41EB-483B-828F-9A94B5427787}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B7C98226-41EB-483B-828F-9A94B5427787}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B7C98226-41EB-483B-828F-9A94B5427787}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
