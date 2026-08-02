@@ -62,8 +62,10 @@ public readonly record struct CellValue
             ErrorKind.Name         => "#NAME?",
             ErrorKind.Circular     => "#CIRCULAR!",
             ErrorKind.NotAvailable => "#N/A",
-            _                      => "#ERROR!"
+            _ => "#ERROR!"
         },
         _ => ""
     };
+
+    public string AsText() => Text ?? string.Empty;
 }
