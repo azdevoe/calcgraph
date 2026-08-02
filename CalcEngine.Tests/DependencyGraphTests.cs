@@ -70,7 +70,7 @@ public class DependencyGraphTests
 
         Assert.NotNull(cycle);
         // path repeats the entry cell at the end so it reads as a loop
-        Assert.Equal("A1 -> C7 -> A1", string.Join(" -> ", cycle!));
+        Assert.Equal("A1 -> B3 -> C7 -> A1", string.Join(" -> ", cycle!));
     }
 
     // Detection happens at INSERTION time and the edge is rolled back,
@@ -100,5 +100,83 @@ public class DependencyGraphTests
 
         Assert.Null(cycle);
         Assert.False(g.HasCycle());
+    }
+
+    // ---------- affected cells ----------
+
+    // A1 -> B1 -> C1. Editing A1 must recompute BOTH — the brief's
+    // "directly or indirectly" requirement.
+    [Fact]
+    public void GetAffectedCells_FollowsChainsTransitively()
+    {
+        var g = new DependencyGraph();
+        g.SetDependencies(R("B1"), new[] { R("A1") });
+        g.SetDependencies(R("C1"), new[] { R("B1") });
+
+        var affected = g.GetAffectedCells(R("A1"));
+
+        Assert.Contains(R("B1"), affected);
+        Assert.Contains(R("C1"), affected);          // indirect
+        Assert.DoesNotContain(R("A1"), affected);    // never itself
+    }
+
+    // A cell nobody reads affects nothing. Empty, not a throw.
+    [Fact]
+    public void GetAffectedCells_UnknownCell_ReturnsEmpty()
+        => Assert.Empty(new DependencyGraph().GetAffectedCells(R("Z99")));
+
+    // Diamond: A1 feeds B1 and C1, both feed D1. D1 must appear ONCE —
+    // without the seen-set it would be recomputed twice.
+    [Fact]
+    public void GetAffectedCells_DiamondVisitsEachCellOnce()
+    {
+        var g = new DependencyGraph();
+        g.SetDependencies(R("B1"), new[] { R("A1") });
+        g.SetDependencies(R("C1"), new[] { R("A1") });
+        g.SetDependencies(R("D1"), new[] { R("B1"), R("C1") });
+
+        Assert.Equal(3, g.GetAffectedCells(R("A1")).Count);
+    }
+
+    // ---------- topological sort ----------
+
+    // The whole point: nothing computed before what it reads.
+    [Fact]
+    public void TopologicalSort_PutsPrecedentsFirst()
+    {
+        var g = new DependencyGraph();
+        g.SetDependencies(R("B1"), new[] { R("A1") });
+        g.SetDependencies(R("C1"), new[] { R("B1") });
+
+        var order = g.TopologicalSort(new[] { R("C1"), R("A1"), R("B1") });
+
+        Assert.True(order.IndexOf(R("A1")) < order.IndexOf(R("B1")));
+        Assert.True(order.IndexOf(R("B1")) < order.IndexOf(R("C1")));
+    }
+
+    // B1 and C1 may come in either order — the test asserts the CONSTRAINT,
+    // not one permutation, because both orderings are correct.
+    [Fact]
+    public void TopologicalSort_DiamondRespectsBothBranches()
+    {
+        var g = new DependencyGraph();
+        g.SetDependencies(R("B1"), new[] { R("A1") });
+        g.SetDependencies(R("C1"), new[] { R("A1") });
+        g.SetDependencies(R("D1"), new[] { R("B1"), R("C1") });
+
+        var order = g.TopologicalSort(new[] { R("D1"), R("C1"), R("B1"), R("A1") });
+
+        Assert.True(order.IndexOf(R("A1")) < order.IndexOf(R("B1")));
+        Assert.True(order.IndexOf(R("A1")) < order.IndexOf(R("C1")));
+        Assert.True(order.IndexOf(R("B1")) < order.IndexOf(R("D1")));
+        Assert.True(order.IndexOf(R("C1")) < order.IndexOf(R("D1")));
+    }
+
+    // Unrelated cells still all come out. Nothing is dropped.
+    [Fact]
+    public void TopologicalSort_UnrelatedCellsAllAppear()
+    {
+        var g = new DependencyGraph();
+        Assert.Equal(3, g.TopologicalSort(new[] { R("A1"), R("B5"), R("Z9") }).Count);
     }
 }
