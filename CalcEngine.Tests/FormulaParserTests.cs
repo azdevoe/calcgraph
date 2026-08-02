@@ -4,10 +4,15 @@ using Xunit;
 namespace CalcEngine.Tests;
 
 /// <summary>
-/// Tests for FormulaParser — wraps the ANTLR lexer/parser pipeline with
-/// ErrorCollector wired in, so malformed input ("normal input" per
+/// Tests for FormulaInputParser — wraps the ANTLR lexer/parser pipeline
+/// with ErrorCollector wired in, so malformed input ("normal input" per
 /// Design_Portfolio 1) returns a FormulaParseResult instead of throwing
 /// or printing to the console.
+///
+/// Named FormulaInputParser rather than FormulaParser to avoid
+/// colliding with the ANTLR-generated CalcEngine.Core.Generated.FormulaParser
+/// — see the doc comment on the class itself for why that collision
+/// broke an unrelated, already-working file.
 ///
 /// These run the real generated lexer/parser (same pipeline as
 /// ExpressionTreeBuilderTests' Build() helper), not mocks — a parser
@@ -17,7 +22,7 @@ namespace CalcEngine.Tests;
 /// </summary>
 public class FormulaParserTests
 {
-    private readonly FormulaParser _parser = new();
+    private readonly FormulaInputParser _parser = new();
     private readonly CellRef _a1 = CellRef.Parse("A1");
     private readonly CellRef _a2 = CellRef.Parse("A2");
     private readonly CellRef _a3 = CellRef.Parse("A3");

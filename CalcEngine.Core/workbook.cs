@@ -52,12 +52,18 @@ public sealed class Workbook : IEvalContext
     public Cell? TryGet(CellRef cellRef) =>
         _cells.TryGetValue(cellRef, out var cell) ? cell : null;
 
-    /// <summary>
-    /// Removes the entry at ref. Returns true if a cell was removed,
+    /// <summary>Removes the entry at ref. Returns true if a cell was removed,
     /// false if none existed. Does not touch the dependency graph —
     /// the caller (CalculationEngine) sequences both.
     /// </summary>
     public bool Remove(CellRef cellRef) => _cells.Remove(cellRef);
+
+    /// <summary>
+    /// Every occupied cell, in no particular order. Used by
+    /// CalculationEngine.RecalculateAll to find every formula cell
+    /// without needing its own separate bookkeeping.
+    /// </summary>
+    public IReadOnlyCollection<Cell> AllCells() => _cells.Values;
 
     // ── IEvalContext ─────────────────────────────────────────────────
 
