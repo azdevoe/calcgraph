@@ -11,4 +11,12 @@
     <PackageReference Include="Antlr4BuildTasks" Version="12.14.0" />
   </ItemGroup>
 
+  <ItemGroup>
+    <Antlr4 Include="Grammar\Formula.g4">
+      <Package>CalcEngine.Core.Generated</Package>
+      <Visitor>true</Visitor>
+      <Listener>false</Listener>
+    </Antlr4>
+  </ItemGroup>
+
 </Project>
