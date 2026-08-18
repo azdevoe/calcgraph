@@ -1,14 +1,33 @@
 namespace CalcEngine.Core;
 
 /// <summary>
+/// Discriminates why a CellChangeSet failed, so a client can react
+/// differently to a syntax error vs a rejected validation rule vs a
+/// circular reference, without string-matching ErrorMessage.
+/// </summary>
+public enum ChangeFailureReason
+{
+    /// <summary>Success is true — no failure.</summary>
+    None,
+    /// <summary>The raw input could not be parsed.</summary>
+    ParseError,
+    /// <summary>The edit would create a circular reference.</summary>
+    Circular,
+    /// <summary>The value was rejected by a data validation rule.</summary>
+    ValidationError
+}
+
+/// <summary>
 /// The single return type for every client-facing operation on
 /// CalculationEngine (Design_Portfolio 4.1). A successful edit, a
-/// parse failure, and a circular reference all come back through this
-/// one type, as data — the client is never required to catch anything.
+/// parse failure, a circular reference, and a validation rejection all
+/// come back through this one type, as data — the client is never
+/// required to catch anything.
 ///
-/// Exactly one of two things is true of any instance: Success is true
-/// and ChangedCells describes what was recomputed, or Success is false
-/// and exactly one of ErrorMessage / CircularPath explains why.
+/// Exactly one of these is true of any instance: Success is true and
+/// ChangedCells describes what was recomputed, or Success is false and
+/// FailureReason plus exactly one of ErrorMessage / CircularPath
+/// explains why.
 /// </summary>
 public sealed class CellChangeSet
 {
@@ -25,7 +44,7 @@ public sealed class CellChangeSet
     /// </summary>
     public IReadOnlyList<CellRef> ChangedCells { get; }
 
-    /// <summary>Set when Success is false due to a parse failure; otherwise null.</summary>
+    /// <summary>Set when Success is false due to a parse or validation failure; otherwise null.</summary>
     public string? ErrorMessage { get; }
 
     /// <summary>
@@ -35,29 +54,38 @@ public sealed class CellChangeSet
     /// </summary>
     public IReadOnlyList<CellRef>? CircularPath { get; }
 
+    /// <summary>Why this result failed. ChangeFailureReason.None when Success is true.</summary>
+    public ChangeFailureReason FailureReason { get; }
+
     private CellChangeSet(
         CellRef edited,
         bool success,
         IReadOnlyList<CellRef> changedCells,
         string? errorMessage,
-        IReadOnlyList<CellRef>? circularPath)
+        IReadOnlyList<CellRef>? circularPath,
+        ChangeFailureReason failureReason)
     {
         Edited = edited;
         Success = success;
         ChangedCells = changedCells;
         ErrorMessage = errorMessage;
         CircularPath = circularPath;
+        FailureReason = failureReason;
     }
 
     /// <summary>A successful edit. changedCells includes edited itself.</summary>
     public static CellChangeSet Ok(CellRef edited, IReadOnlyList<CellRef> changedCells) =>
-        new(edited, success: true, changedCells, errorMessage: null, circularPath: null);
+        new(edited, success: true, changedCells, errorMessage: null, circularPath: null, ChangeFailureReason.None);
 
     /// <summary>The raw input could not be parsed as a valid formula or literal.</summary>
     public static CellChangeSet ParseFailure(CellRef edited, string message) =>
-        new(edited, success: false, Array.Empty<CellRef>(), message, circularPath: null);
+        new(edited, success: false, Array.Empty<CellRef>(), message, circularPath: null, ChangeFailureReason.ParseError);
 
     /// <summary>The edit was rejected because it would create a circular reference.</summary>
     public static CellChangeSet Circular(CellRef edited, IReadOnlyList<CellRef> cyclePath) =>
-        new(edited, success: false, Array.Empty<CellRef>(), errorMessage: null, cyclePath);
+        new(edited, success: false, Array.Empty<CellRef>(), errorMessage: null, cyclePath, ChangeFailureReason.Circular);
+
+    /// <summary>The value was rejected by a data validation rule attached to the cell.</summary>
+    public static CellChangeSet ValidationFailed(CellRef edited, string message) =>
+        new(edited, success: false, Array.Empty<CellRef>(), message, circularPath: null, ChangeFailureReason.ValidationError);
 }
