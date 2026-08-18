@@ -2,17 +2,25 @@ namespace CalcEngine.Core;
 
 /// <summary>
 /// The public API surface of the engine (Design_Portfolio 4.1, Fig 2).
-/// Wires Workbook, DependencyGraph, FormulaInputParser, ChangeNotifier
-/// and CommandManager together behind one entry point — the GUI client
-/// calls CalculationEngine and nothing else.
+/// Wires Workbook, DependencyGraph, FormulaInputParser, ChangeNotifier,
+/// CommandManager and ValidationRegistry together behind one entry
+/// point — the GUI client calls CalculationEngine and nothing else.
 ///
 /// Every mutating operation returns a CellChangeSet: a successful
-/// edit, a parse failure, and a circular reference all come back as
-/// data, never as a thrown exception.
+/// edit, a parse failure, a circular reference, and a validation
+/// rejection all come back as data, never as a thrown exception.
 ///
 /// Undo/Redo are backed by CommandManager (Design_Portfolio 6.5).
 /// SetCellContent and ClearCell create SetCellCommand objects and route
 /// them through ExecuteCommand so every edit is automatically recorded.
+///
+/// Data validation (Group C feature) is backed by ValidationRegistry:
+/// a cell may have at most one IValidationRule attached. ApplyEdit
+/// checks the EVALUATED VALUE against that rule — after parsing and
+/// the cycle check, before anything is written to the workbook — so a
+/// rejected edit leaves the workbook, the dependency graph, and
+/// observers exactly as they were, same as a parse failure or a
+/// circular reference.
 /// </summary>
 public sealed class CalculationEngine
 {
@@ -21,6 +29,7 @@ public sealed class CalculationEngine
     private readonly FormulaInputParser _parser = new();
     private readonly ChangeNotifier _notifier = new();
     private readonly CommandManager _commandManager = new();
+    private readonly ValidationRegistry _validationRegistry = new();
 
     // ── Public API: editing ────────────────────────────────────────
 
@@ -28,11 +37,14 @@ public sealed class CalculationEngine
     /// Parses and applies rawInput to the cell at ref. A formula
     /// (leading '=') has its dependencies extracted and checked for
     /// cycles before anything is written; a literal simply replaces
-    /// the cell's content. Either way, every cell that must be
-    /// recomputed as a result is recalculated in one topological pass
-    /// and observers are notified once with the complete set.
+    /// the cell's content. If a validation rule is attached to the
+    /// cell, the evaluated value must satisfy it or the edit is
+    /// rejected. Either way, every cell that must be recomputed as a
+    /// result is recalculated in one topological pass and observers
+    /// are notified once with the complete set.
     ///
-    /// The edit is recorded in the undo stack so it can be reversed.
+    /// The edit is recorded in the undo stack so it can be reversed —
+    /// but only if it succeeds; a rejected edit never touches undo/redo.
     /// </summary>
     public CellChangeSet SetCellContent(CellRef cellRef, string rawInput)
     {
@@ -85,6 +97,21 @@ public sealed class CalculationEngine
     /// </summary>
     public CellChangeSet Redo() => _commandManager.Redo();
 
+    // ── Public API: data validation ────────────────────────────────
+
+    /// <summary>
+    /// Attaches rule to cellRef. Every future edit to that cell must
+    /// produce a value satisfying rule, or the edit is rejected with
+    /// CellChangeSet.ValidationFailed. Replaces any rule already there.
+    /// Does not retroactively check the cell's current value.
+    /// </summary>
+    public void SetValidationRule(CellRef cellRef, IValidationRule rule) =>
+        _validationRegistry.SetRule(cellRef, rule);
+
+    /// <summary>Removes any validation rule attached to cellRef. A no-op if none was set.</summary>
+    public void ClearValidationRule(CellRef cellRef) =>
+        _validationRegistry.ClearRule(cellRef);
+
     // ── Public API: bulk recalculation ─────────────────────────────
 
     /// <summary>
@@ -126,7 +153,9 @@ public sealed class CalculationEngine
     /// avoid infinite recursion).
     ///
     /// An empty rawInput clears the cell (same behaviour as the old
-    /// public ClearCell).
+    /// public ClearCell). A clear is never checked against a
+    /// validation rule — CellValue.Empty is always an acceptable way
+    /// to leave a cell, even one with a rule attached.
     /// </summary>
     internal CellChangeSet ApplyEdit(CellRef cellRef, string rawInput)
     {
@@ -152,15 +181,35 @@ public sealed class CalculationEngine
             return CellChangeSet.Circular(cellRef, cycle);
         }
 
+        // Evaluate the candidate value against the CURRENT workbook
+        // state (the cell itself hasn't been written yet) so a
+        // validation rule can check it before anything is committed.
+        // If it fails, the dependency edges we just accepted above
+        // must be rolled back too — SetDependencies has no memory of
+        // "provisional", so we explicitly restore the old edges by
+        // re-running it with the previous dependency set.
+        var candidateValue = parseResult.Tree!.Evaluate(_workbook);
+        var rule = _validationRegistry.GetRule(cellRef);
+        if (rule is not null)
+        {
+            var validation = rule.Validate(candidateValue, _workbook);
+            if (!validation.Success)
+            {
+                var previousDeps = _graph.PrecedentsOf(cellRef).ToList();
+                _graph.SetDependencies(cellRef, previousDeps);
+                return CellChangeSet.ValidationFailed(cellRef, validation.ErrorMessage!);
+            }
+        }
+
         var cell = _workbook.GetOrCreate(cellRef);
         if (parseResult.IsFormula)
         {
             cell.SetFormula(rawInput, parseResult.Tree!);
-            cell.SetValue(cell.Tree!.Evaluate(_workbook));
+            cell.SetValue(candidateValue);
         }
         else
         {
-            cell.SetLiteral(rawInput, parseResult.Tree!.Evaluate(_workbook));
+            cell.SetLiteral(rawInput, candidateValue);
         }
 
         var changedCells = RecomputeAffected(cellRef);
