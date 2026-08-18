@@ -12,7 +12,8 @@ namespace CalcEngine.Tests;
 ///   RI-2: undoStack.Count &lt;= 100 (bounded deque)
 ///   RI-3: every command on undoStack has been executed exactly once
 ///   RI-4: every command on redoStack has been undone after executing
-///   RI-5: ExecuteCommand clears redoStack
+///   RI-5: ExecuteCommand clears redoStack — but only on a successful edit
+///   RI-6: a rejected (Success = false) command never mutates either stack
 /// </summary>
 public class CommandManagerTests
 {
@@ -358,5 +359,62 @@ public class CommandManagerTests
         mgr.Redo(); // redo A2
         Assert.Equal(CellValue.FromNumber(10), engine.GetValue(_a1));
         Assert.Equal(CellValue.FromNumber(20), engine.GetValue(_a2));
+    }
+
+    // ── RI-6: rejected commands never mutate either stack ──────────
+
+    [Fact]
+    public void ExecuteCommand_RejectedEdit_DoesNotSetCanUndoTrue()
+    {
+        var engine = new CalculationEngine();
+        var mgr = new CommandManager();
+
+        var result = mgr.ExecuteCommand(new SetCellCommand(engine, _a1, "=1+"));
+
+        Assert.False(result.Success);
+        Assert.False(mgr.CanUndo);
+    }
+
+    [Fact]
+    public void ExecuteCommand_RejectedEdit_DoesNotClearRedoStack()
+    {
+        var engine = new CalculationEngine();
+        var mgr = new CommandManager();
+
+        mgr.ExecuteCommand(new SetCellCommand(engine, _a1, "1"));
+        mgr.Undo();
+        Assert.True(mgr.CanRedo);
+
+        // A rejected edit changed nothing — the redo future must survive.
+        mgr.ExecuteCommand(new SetCellCommand(engine, _a1, "=1+"));
+
+        Assert.True(mgr.CanRedo);
+    }
+
+    [Fact]
+    public void ExecuteCommand_RejectedEdit_DoesNotGrowUndoStack()
+    {
+        var engine = new CalculationEngine();
+        var mgr = new CommandManager();
+
+        mgr.ExecuteCommand(new SetCellCommand(engine, _a1, "1"));
+        mgr.ExecuteCommand(new SetCellCommand(engine, _a1, "=1+")); // rejected
+        mgr.Undo();
+
+        // Only the first, valid edit should have been undoable.
+        Assert.False(mgr.CanUndo);
+        Assert.Equal(CellValue.Empty, engine.GetValue(_a1));
+    }
+
+    [Fact]
+    public void ExecuteCommand_RejectedCircularEdit_DoesNotSetCanUndoTrue()
+    {
+        var engine = new CalculationEngine();
+        var mgr = new CommandManager();
+
+        var result = mgr.ExecuteCommand(new SetCellCommand(engine, _a1, "=A1"));
+
+        Assert.False(result.Success);
+        Assert.False(mgr.CanUndo);
     }
 }

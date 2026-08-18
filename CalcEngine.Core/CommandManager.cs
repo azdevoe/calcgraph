@@ -52,20 +52,20 @@ public sealed class CommandManager
     /// one is silently discarded. Clears the redo stack (RI-5).
     /// </summary>
     public CellChangeSet ExecuteCommand(ICommand command)
-    {
-        var result = command.Execute();
+{
+    var result = command.Execute();
 
-        // RI-5: a new edit invalidates the entire redo future.
-        _redoStack.Clear();
-
-        _undoStack.AddLast(command);
-
-        // RI-2: enforce bounded capacity.
-        if (_undoStack.Count > Capacity)
-            _undoStack.RemoveFirst();
-
+    if (!result.Success)
         return result;
-    }
+
+    _redoStack.Clear();
+    _undoStack.AddLast(command);
+
+    if (_undoStack.Count > Capacity)
+        _undoStack.RemoveFirst();
+
+    return result;
+}
 
     /// <summary>
     /// Undoes the most recent command and moves it to the redo stack.
