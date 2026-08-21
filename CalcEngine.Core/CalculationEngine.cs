@@ -171,6 +171,14 @@ public sealed class CalculationEngine
             ? DependencyVisitor.GetDependencies(parseResult.Tree!)
             : Array.Empty<CellRef>();
 
+        // Captured BEFORE SetDependencies below overwrites them — this
+        // is the graph's actual prior state, the only thing a rollback
+        // can correctly restore to. (Reading PrecedentsOf after the
+        // accept-then-maybe-reject sequence below would return the new,
+        // not-yet-committed deps instead, since SetDependencies has
+        // already applied them by then.)
+        var previousDeps = _graph.PrecedentsOf(cellRef).ToList();
+
         // Checked (and, if necessary, rolled back) before the workbook
         // is touched — a rejected edit must leave the cell exactly as
         // it was, per Design_Portfolio 4.5/6.3.
@@ -195,7 +203,6 @@ public sealed class CalculationEngine
             var validation = rule.Validate(candidateValue, _workbook);
             if (!validation.Success)
             {
-                var previousDeps = _graph.PrecedentsOf(cellRef).ToList();
                 _graph.SetDependencies(cellRef, previousDeps);
                 return CellChangeSet.ValidationFailed(cellRef, validation.ErrorMessage!);
             }
