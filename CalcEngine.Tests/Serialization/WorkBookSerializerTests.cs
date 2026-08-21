@@ -94,18 +94,18 @@ public class WorkbookSerializerTests : IDisposable
     {
         // Arrange
         var initialEngine = new CalculationEngine();
-        initialEngine.SetCellContent(CellRef.Parse("Z100"), "Old Data");
+        initialEngine.SetCellContent(CellRef.Parse("Z100"), "\"Old Data\"");
 
         // Save a clean workbook with only A1
         var sourceEngine = new CalculationEngine();
-        sourceEngine.SetCellContent(CellRef.Parse("A1"), "New Data");
+        sourceEngine.SetCellContent(CellRef.Parse("A1"), "\"New Data\"");
         WorkbookSerializer.SaveToJSON(sourceEngine.Workbook, _tempFilePath);
 
         // Act
         WorkbookSerializer.LoadFromJSON(initialEngine, _tempFilePath);
 
         // Assert
-        Assert.Equal("New Data", initialEngine.GetFormula(CellRef.Parse("A1")));
+        Assert.Equal("\"New Data\"", initialEngine.GetFormula(CellRef.Parse("A1")));
         Assert.Equal(string.Empty, initialEngine.GetFormula(CellRef.Parse("Z100")));
     }
 
