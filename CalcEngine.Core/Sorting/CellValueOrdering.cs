@@ -19,6 +19,15 @@ namespace CalcEngine.Core.Sorting;
 /// </summary>
 internal static class CellValueOrdering
 {
+    /// <summary>Decides which of two values comes first, lowest first.</summary>
+    /// <param name="a">The first value to compare.</param>
+    /// <param name="b">The second value to compare.</param>
+    /// <returns>
+    /// A negative number if <paramref name="a"/> comes first, a positive
+    /// number if <paramref name="b"/> does, and zero if neither comes before
+    /// the other. Every pair of values can be ordered, so a column holding a
+    /// mixture of kinds still sorts.
+    /// </returns>
     public static int CompareAscending(CellValue a, CellValue b)
     {
         int rankA = KindRank(a.Kind);

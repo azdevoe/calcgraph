@@ -16,12 +16,26 @@ namespace CalcEngine.Core.Sorting;
 /// </summary>
 public static class RangeSorter
 {
-    /// <summary>
-    /// Reorders dataRows (row numbers, header already excluded by the
-    /// caller) by keys, evaluated via valueAt(row, column). Returns the
-    /// row numbers in their new order — dataRows[i] should end up
-    /// holding whatever is currently at ComputeOrder(...)[i].
-    /// </summary>
+    /// <summary>Works out what order a set of rows should be put into.</summary>
+    /// <param name="dataRows">
+    /// The row numbers to arrange. Any header row must already have been left
+    /// out.
+    /// </param>
+    /// <param name="keys">
+    /// The columns to sort on, most important first. Rows that tie on the
+    /// first key are settled by the second, and so on.
+    /// </param>
+    /// <param name="valueAt">
+    /// Supplies the value at a given row and column, so that the ordering can
+    /// be worked out without reaching into a workbook.
+    /// </param>
+    /// <returns>
+    /// The same row numbers rearranged: the row named at each position is the
+    /// one whose contents belong there. Rows that tie on every key keep the
+    /// order they were given in.
+    /// </returns>
+    /// <exception cref="ArgumentNullException">Any argument is null.</exception>
+    /// <exception cref="ArgumentException"><paramref name="keys"/> is empty.</exception>
     public static IReadOnlyList<int> ComputeOrder(
         IReadOnlyList<int> dataRows,
         IReadOnlyList<SortKey> keys,

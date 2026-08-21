@@ -14,6 +14,15 @@ public sealed class SortKey
     /// <summary>Ascending or descending, or any other ordering strategy.</summary>
     public ISortComparer Comparer { get; }
 
+    /// <summary>Initializes a new sort key.</summary>
+    /// <param name="column">
+    /// The column to read the sort value from, counting from 1 at column A.
+    /// </param>
+    /// <param name="comparer">The ordering to apply to that column.</param>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="column"/> is below 1.
+    /// </exception>
+    /// <exception cref="ArgumentNullException"><paramref name="comparer"/> is null.</exception>
     public SortKey(int column, ISortComparer comparer)
     {
         if (column < 1)

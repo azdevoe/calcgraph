@@ -36,6 +36,17 @@ public sealed class SortRangeCommand : ICommand
     private Dictionary<CellRef, string>? _before;
     private Dictionary<CellRef, string>? _after;
 
+    /// <summary>Creates a sort that has not been carried out yet.</summary>
+    /// <param name="engine">The engine holding the cells to sort.</param>
+    /// <param name="range">The range whose rows are to be reordered.</param>
+    /// <param name="keys">
+    /// The columns to sort on, most important first. Every column must lie
+    /// within the range.
+    /// </param>
+    /// <param name="hasHeader">
+    /// true to leave the range's first row where it is; false to sort every
+    /// row.
+    /// </param>
     public SortRangeCommand(CalculationEngine engine, CellRange range, IReadOnlyList<SortKey> keys, bool hasHeader)
     {
         _engine = engine;
@@ -44,6 +55,17 @@ public sealed class SortRangeCommand : ICommand
         _hasHeader = hasHeader;
     }
 
+    /// <summary>Reorders the rows of the range.</summary>
+    /// <returns>
+    /// The cells whose values changed. Whole rows travel together, so every
+    /// column of the range moves with its row, and a formula that moves has
+    /// the references inside it shifted by the same distance the row moved.
+    /// The sort is refused, leaving the range untouched, if any of those
+    /// shifted references would fall outside the sheet, or if any of the
+    /// resulting writes would break a validation rule or make a cell depend
+    /// on itself. Sorting again after undoing gives the same arrangement as
+    /// the first time.
+    /// </returns>
     public CellChangeSet Execute()
     {
         if (_after is null)
@@ -72,6 +94,11 @@ public sealed class SortRangeCommand : ICommand
         return Apply(_after!, fallback: _before!);
     }
 
+    /// <summary>Puts the rows back in the order they were in before the sort.</summary>
+    /// <returns>
+    /// The cells whose values changed. Every cell of the range is restored to
+    /// the text it held before, formulas included.
+    /// </returns>
     public CellChangeSet Undo() => Apply(_before!, fallback: _after!);
 
     // ── Planning ─────────────────────────────────────────────────
