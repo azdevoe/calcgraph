@@ -234,12 +234,22 @@ public partial class Form1 : Form, ICellObserver
         }
         else
         {
-            // Rejected: put the cell back to whatever it actually holds
-            // (the engine never touched it) and explain why.
-            _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = DisplayValueFor(cellRef);
+            // If edit failed due to a parse error or circular reference, 
+            // display failure reason in status bar and highlight cell
             FlashError(e.RowIndex, e.ColumnIndex);
             _statusLabel.Text = DescribeFailure(result);
             _statusLabel.BackColor = ErrorColor;
+
+            // If it was a circular reference, trigger circular reference formatting
+            if (result.FailureReason == ChangeFailureReason.Circular && result.CircularPath != null)
+            {
+                OnCircularReference(result.CircularPath);
+            }
+            else
+            {
+                // Preserve what the engine currently holds
+                _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = DisplayValueFor(cellRef);
+            }
         }
 
         UpdateFormulaBar();
@@ -271,8 +281,19 @@ public partial class Form1 : Form, ICellObserver
 
             var value = _engine.GetValue(cellRef);
             var cell = _grid.Rows[r].Cells[c];
-            cell.Value = value.ToString();
+            string displayString = value.ToString();
+            cell.Value = string.IsNullOrEmpty(displayString) && value.IsError
+                ? "#ERROR!"
+                : displayString;
+
+            // Highlight error cells in light red/pink
             cell.Style.BackColor = value.IsError ? ErrorColor : NormalColor;
+
+            // Clear old cycle tooltips if the cell is now valid
+            if (!value.IsError)
+            {
+                cell.ToolTipText = string.Empty;
+            }
         }
 
         // A sort can move the exact rows a filter is watching; a plain
@@ -281,6 +302,10 @@ public partial class Form1 : Form, ICellObserver
         RefreshFilterVisibility();
     }
 
+    /// <summary>
+    /// Called by CalculationEngine when a circular reference dependency chain is detected.
+    /// Displays '#CIRCULAR!' inside the affected cells and shows the cycle path on hover tooltip and status bar.
+    /// </summary>
     public void OnCircularReference(IReadOnlyList<CellRef> cyclePath)
     {
         _statusLabel.Text = $"Circular reference: {string.Join(" \u2192 ", cyclePath.Select(c => c.ToA1()))}";
@@ -288,7 +313,16 @@ public partial class Form1 : Form, ICellObserver
 
         foreach (var cellRef in cyclePath)
             if (TryToGridPosition(cellRef, out var r, out var c))
-                _grid.Rows[r].Cells[c].Style.BackColor = ErrorColor;
+            {
+                var cell = _grid.Rows[r].Cells[c];
+
+                // Set cell value to explicit error text (Fixes Issue 6)
+                cell.Value = "#CIRCULAR!";
+                cell.Style.BackColor = ErrorColor;
+
+                // Show exact cycle path when hovering over the cell
+                cell.ToolTipText = $"Circular Reference Chain: {cyclePath}";
+            }
     }
 
     // ── Selection / formula bar ─────────────────────────────────────

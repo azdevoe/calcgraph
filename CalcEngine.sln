@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.0.31903.59
+# Visual Studio Version 18
+VisualStudioVersion = 18.9.12112.369 stable
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CalcEngine.Core", "CalcEngine.Core\CalcEngine.Core.csproj", "{4EC4719F-9997-4852-9702-D1B6E661E0B3}"
 EndProject
@@ -17,8 +17,11 @@ Global
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
+<<<<<<< HEAD
+=======
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
+>>>>>>> 5b844cb357ae6ced82427afe0994865854e3475b
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{4EC4719F-9997-4852-9702-D1B6E661E0B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -69,6 +72,9 @@ Global
 		{6AE9DC48-9607-4566-87BB-31CD17AAF5C6}.Release|x64.Build.0 = Release|Any CPU
 		{6AE9DC48-9607-4566-87BB-31CD17AAF5C6}.Release|x86.ActiveCfg = Release|Any CPU
 		{6AE9DC48-9607-4566-87BB-31CD17AAF5C6}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

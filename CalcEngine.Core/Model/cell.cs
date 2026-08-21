@@ -16,6 +16,7 @@ namespace CalcEngine.Core.Model;
 /// </summary>
 public sealed class Cell
 {
+    /// <summary>Gets the unique coordinate reference identifying this cell's position in the workbook.</summary>
     public CellRef Ref { get; }
 
     /// <summary>The exact text the user typed, e.g. "42" or "=SUM(A1:A5)".</summary>
@@ -27,9 +28,13 @@ public sealed class Cell
     /// <summary>The parsed formula tree, or null if this cell is not a formula.</summary>
     public IExpression? Tree { get; private set; }
 
-    /// <summary>True iff this cell currently holds a formula (Tree is non-null).</summary>
+    /// <summary>True if this cell currently holds a formula (Tree is non-null).</summary>
     public bool IsFormula => Tree is not null;
 
+    /// <summary>
+    /// Initializes a new instance of the <see cref="Cell"/> class with the specified cell reference.
+    /// </summary>
+    /// <param name="cellRef">The unique coordinate reference for this cell.</param>
     public Cell(CellRef cellRef)
     {
         Ref = cellRef;

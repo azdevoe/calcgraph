@@ -67,10 +67,20 @@ public sealed class ExpressionTreeBuilder : FormulaBaseVisitor<IExpression>
         return new BinaryExpression(left, op, right);
     }
 
+    public override IExpression VisitPower(FormulaParser.PowerContext context)
+    {
+        var baseExpr = Visit(context.atom());
+        if (context.unary() == null)
+            return baseExpr;
+
+        var exponent = Visit(context.unary());
+        return new BinaryExpression(baseExpr, BinaryOperator.Power, exponent);
+    }
+
     public override IExpression VisitUnary(FormulaParser.UnaryContext context)
     {
-        if (context.atom() != null)
-            return Visit(context.atom());
+        if (context.power() != null)
+            return Visit(context.power());
 
         // Recursive form: op unary (allows --A1)
         var operand = Visit(context.unary());

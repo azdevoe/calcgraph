@@ -34,6 +34,7 @@ public sealed class BinaryExpression : IExpression
             BinaryOperator.Subtract => ArithOp(left, right, (a, b) => a - b),
             BinaryOperator.Multiply => ArithOp(left, right, (a, b) => a * b),
             BinaryOperator.Divide => Divide(left, right),
+            BinaryOperator.Power => ArithOp(left, right, Math.Pow),
 
             BinaryOperator.Equal => Compare(left, right, c => c == 0),
             BinaryOperator.NotEqual => Compare(left, right, c => c != 0),

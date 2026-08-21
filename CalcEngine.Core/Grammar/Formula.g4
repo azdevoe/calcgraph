@@ -24,10 +24,12 @@ addition     : addition op=( '+' | '-' ) multiply
 multiply     : multiply op=( '*' | '/' ) unary
              | unary
              ;
-
+                
 unary        : op=( '-' | '+' ) unary
-             | atom
+             | power
              ;
+
+power        : atom ( '^' unary )? ;
 
 atom         : NUMBER                          # NumberAtom
              | STRING                          # StringAtom

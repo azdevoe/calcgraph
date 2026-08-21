@@ -11,6 +11,7 @@ public enum BinaryOperator
     Subtract,
     Multiply,
     Divide,
+    Power,
 
     // Comparison
     Equal,
