@@ -31,6 +31,37 @@ public class CalculationEngineValidationTests
     }
 
     [Fact]
+    public void SetCellContent_RejectedFormulaEdit_DependencyGraphKeepsThePriorFormulasEdges()
+    {
+        // B1 starts as "=A1" (depends on A1). We then try to replace it
+        // with "=C1" (a different dependency) but C1's value violates
+        // B1's rule, so the edit is rejected — B1 must still be "=A1"
+        // in the dependency graph too, not silently left depending on
+        // C1 instead. Observed indirectly through the public API: only
+        // a change to the cell the graph still thinks B1 depends on
+        // should recompute B1.
+        var engine = new CalculationEngine();
+        engine.SetCellContent(_a1, "1");
+        engine.SetCellContent(_c1, "999"); // outside B1's rule range
+        engine.SetCellContent(_b1, "=A1");
+        engine.SetValidationRule(_b1, new RangeRule(0, 100));
+
+        var rejected = engine.SetCellContent(_b1, "=C1");
+        Assert.False(rejected.Success);
+        Assert.Equal("=A1", engine.GetFormula(_b1)); // cell content itself is untouched
+
+        // A1 changes: B1 must still recompute, because the graph edge
+        // A1 -> B1 must still be there.
+        engine.SetCellContent(_a1, "42");
+        Assert.Equal(CellValue.FromNumber(42), engine.GetValue(_b1));
+
+        // C1 changes: B1 must NOT recompute off it — the rejected edit
+        // must never have created a C1 -> B1 edge.
+        engine.SetCellContent(_c1, "7");
+        Assert.Equal(CellValue.FromNumber(42), engine.GetValue(_b1));
+    }
+
+    [Fact]
     public void SetCellContent_ValueSatisfiesRule_Succeeds()
     {
         var engine = new CalculationEngine();

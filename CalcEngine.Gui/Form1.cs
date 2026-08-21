@@ -1,4 +1,4 @@
-using CalcEngine.Core;
+using CalcEngine.Core.Sorting;
 using CalcEngine.Core.ChangeTracking;
 using CalcEngine.Core.Engine;
 using CalcEngine.Core.Model;
@@ -31,7 +31,22 @@ public partial class Form1 : Form, ICellObserver
     private readonly Label _statusLabel = new();
     private readonly Button _undoButton = new();
     private readonly Button _redoButton = new();
+    private readonly Button _sortButton = new();
+    private readonly Button _filterButton = new();
+    private readonly Button _clearFilterButton = new();
     private readonly ContextMenuStrip _cellMenu = new();
+
+    // Group C feature: Sorting & Filtering. FilterManager (in Core)
+    // holds the real filter state, keyed by (range, column) — this is
+    // just enough client-side bookkeeping to know which rows to hide
+    // in the grid and which filters "Clear Filter" should remove.
+    // Simplification: only one filtered range is tracked at a time,
+    // and undoing/redoing a filter command through Ctrl+Z does not
+    // resync this bookkeeping — acceptable for a demo client, since
+    // FilterManager has no "list active filters" query to rebuild it
+    // from (documented limitation, not an oversight).
+    private CellRange? _activeFilterRange;
+    private readonly HashSet<int> _activeFilterColumns = new();
 
     private static readonly Color ErrorColor = Color.MistyRose;
     private static readonly Color NormalColor = Color.White;
@@ -61,8 +76,26 @@ public partial class Form1 : Form, ICellObserver
         _redoButton.Location = new Point(70, 4);
         _redoButton.Click += (_, _) => TryRedo();
 
+        _sortButton.Text = "Sort...";
+        _sortButton.AutoSize = true;
+        _sortButton.Location = new Point(140, 4);
+        _sortButton.Click += (_, _) => ShowSortDialog();
+
+        _filterButton.Text = "Filter...";
+        _filterButton.AutoSize = true;
+        _filterButton.Location = new Point(210, 4);
+        _filterButton.Click += (_, _) => ShowFilterDialog();
+
+        _clearFilterButton.Text = "Clear Filter";
+        _clearFilterButton.AutoSize = true;
+        _clearFilterButton.Location = new Point(280, 4);
+        _clearFilterButton.Click += (_, _) => ClearActiveFilter();
+
         toolbar.Controls.Add(_undoButton);
         toolbar.Controls.Add(_redoButton);
+        toolbar.Controls.Add(_sortButton);
+        toolbar.Controls.Add(_filterButton);
+        toolbar.Controls.Add(_clearFilterButton);
 
         var formulaBarPanel = new Panel { Dock = DockStyle.Top, Height = 30 };
         _addressLabel.Text = "";
@@ -241,6 +274,11 @@ public partial class Form1 : Form, ICellObserver
             cell.Value = value.ToString();
             cell.Style.BackColor = value.IsError ? ErrorColor : NormalColor;
         }
+
+        // A sort can move the exact rows a filter is watching; a plain
+        // edit can change a value a filter reads. Either way, whatever
+        // is currently filtered needs its visible-row set recomputed.
+        RefreshFilterVisibility();
     }
 
     public void OnCircularReference(IReadOnlyList<CellRef> cyclePath)
@@ -280,6 +318,11 @@ public partial class Form1 : Form, ICellObserver
         _engine.Undo();
         UpdateFormulaBar();
         UpdateUndoRedoButtons();
+        // Undoing a cell edit fires OnCellsChanged, which already
+        // refreshes filter visibility — but undoing a filter command
+        // itself does not (filtering never notifies observers), so
+        // refresh unconditionally here too.
+        RefreshFilterVisibility();
     }
 
     private void TryRedo()
@@ -288,6 +331,7 @@ public partial class Form1 : Form, ICellObserver
         _engine.Redo();
         UpdateFormulaBar();
         UpdateUndoRedoButtons();
+        RefreshFilterVisibility();
     }
 
     private void UpdateUndoRedoButtons()
@@ -319,6 +363,129 @@ public partial class Form1 : Form, ICellObserver
         _engine.ClearValidationRule(cellRef);
         _statusLabel.Text = $"Rule cleared on {cellRef.ToA1()}";
         _statusLabel.BackColor = Color.WhiteSmoke;
+    }
+
+    // ── Sorting & Filtering (Group C feature) ────────────────────────
+
+    /// <summary>
+    /// The rectangular CellRange covering the grid's current selection,
+    /// or false if nothing is selected. SortRange/SetFilter both take a
+    /// CellRange, so this is the one place the grid's selection state
+    /// is translated into the engine's addressing.
+    /// </summary>
+    private bool TryGetSelectedRange(out CellRange range)
+    {
+        range = default;
+        if (_grid.SelectedCells.Count == 0) return false;
+
+        int minRow = int.MaxValue, maxRow = int.MinValue, minCol = int.MaxValue, maxCol = int.MinValue;
+        foreach (DataGridViewCell cell in _grid.SelectedCells)
+        {
+            minRow = Math.Min(minRow, cell.RowIndex);
+            maxRow = Math.Max(maxRow, cell.RowIndex);
+            minCol = Math.Min(minCol, cell.ColumnIndex);
+            maxCol = Math.Max(maxCol, cell.ColumnIndex);
+        }
+
+        range = new CellRange(ToCellRef(minRow, minCol), ToCellRef(maxRow, maxCol));
+        return true;
+    }
+
+    private void ShowSortDialog()
+    {
+        if (!TryGetSelectedRange(out var range))
+        {
+            _statusLabel.Text = "Select a range of cells to sort first.";
+            _statusLabel.BackColor = ErrorColor;
+            return;
+        }
+
+        using var dialog = new SortRangeDialog(range);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        var comparer = dialog.Ascending ? (ISortComparer)new AscendingComparer() : new DescendingComparer();
+        var keys = new[] { new SortKey(dialog.SelectedColumn, comparer) };
+
+        var result = _engine.SortRange(range, keys, dialog.HasHeader);
+
+        if (result.Success)
+        {
+            _statusLabel.Text = $"Sorted {range}.";
+            _statusLabel.BackColor = Color.WhiteSmoke;
+        }
+        else
+        {
+            _statusLabel.Text = DescribeFailure(result);
+            _statusLabel.BackColor = ErrorColor;
+        }
+
+        UpdateUndoRedoButtons();
+        // OnCellsChanged already fires (and refreshes filter visibility)
+        // when the sort succeeds; a rejected sort touched nothing.
+    }
+
+    private void ShowFilterDialog()
+    {
+        if (!TryGetSelectedRange(out var range))
+        {
+            _statusLabel.Text = "Select a range of cells to filter first.";
+            _statusLabel.BackColor = ErrorColor;
+            return;
+        }
+
+        using var dialog = new FilterRangeDialog(range);
+        if (dialog.ShowDialog(this) != DialogResult.OK) return;
+
+        _engine.SetFilter(range, dialog.SelectedColumn, dialog.Filter!);
+
+        _activeFilterRange = range;
+        _activeFilterColumns.Add(dialog.SelectedColumn);
+
+        RefreshFilterVisibility();
+        UpdateUndoRedoButtons();
+        _statusLabel.Text = $"Filter applied to {range}.";
+        _statusLabel.BackColor = Color.WhiteSmoke;
+    }
+
+    private void ClearActiveFilter()
+    {
+        if (_activeFilterRange is not { } range)
+        {
+            _statusLabel.Text = "No active filter to clear.";
+            _statusLabel.BackColor = Color.WhiteSmoke;
+            return;
+        }
+
+        foreach (var column in _activeFilterColumns)
+            _engine.ClearFilter(range, column);
+
+        _activeFilterColumns.Clear();
+        _activeFilterRange = null;
+
+        foreach (DataGridViewRow row in _grid.Rows)
+            row.Visible = true;
+
+        UpdateUndoRedoButtons();
+        _statusLabel.Text = "Filter cleared.";
+        _statusLabel.BackColor = Color.WhiteSmoke;
+    }
+
+    /// <summary>
+    /// Hides every row of the active filter range that GetVisibleRows
+    /// no longer reports, and shows every one it does. A no-op when no
+    /// filter is active. Filtering never touches a cell's value or
+    /// formula — only DataGridViewRow.Visible changes here.
+    /// </summary>
+    private void RefreshFilterVisibility()
+    {
+        if (_activeFilterRange is not { } range) return;
+
+        var visibleRows = new HashSet<int>(_engine.GetVisibleRows(range));
+        for (int r = range.TopLeft.Row; r <= range.BottomRight.Row; r++)
+        {
+            if (!TryToGridPosition(new CellRef(r, range.TopLeft.Column), out var rowIndex, out _)) continue;
+            _grid.Rows[rowIndex].Visible = visibleRows.Contains(r);
+        }
     }
 
     private void Form1_Load(object sender, EventArgs e)
