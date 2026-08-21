@@ -167,6 +167,35 @@ public class FormulaParserTests
         Assert.Null(ex);
     }
 
+    [Fact]
+    public void CellReferenceWithRowZero_FailsGracefully_NeverThrows()
+    {
+        // CELLREF's grammar token is LETTERS DIGITS — the lexer accepts
+        // any digit string as the row, including "0". Row 0 is outside
+        // the sheet (rows start at 1), and CellRef.Parse enforces that
+        // by throwing FormatException — a formula containing "A0" is a
+        // syntactically valid parse tree that only fails when the tree
+        // builder resolves the reference. That must still come back as
+        // a FormulaParseResult.Failure, not an exception escaping Parse.
+        var ex = Record.Exception(() => _parser.Parse("=A0+1"));
+        Assert.Null(ex);
+
+        var result = _parser.Parse("=A0+1");
+        Assert.False(result.Success);
+        Assert.NotEmpty(result.Errors);
+    }
+
+    [Fact]
+    public void RangeWithRowZero_FailsGracefully_NeverThrows()
+    {
+        var ex = Record.Exception(() => _parser.Parse("=SUM(A0:A5)"));
+        Assert.Null(ex);
+
+        var result = _parser.Parse("=SUM(A0:A5)");
+        Assert.False(result.Success);
+        Assert.NotEmpty(result.Errors);
+    }
+
     // ── IsFormula flag ──────────────────────────────────────────────
 
     [Fact]
