@@ -10,7 +10,7 @@ namespace CalcEngine.Core.Parsing;
 /// Wraps the ANTLR-generated lexer and parser (Grammar/Formula.g4),
 /// wiring an ErrorCollector into both so a malformed formula returns a
 /// FormulaParseResult.Failure instead of throwing or printing to the
-/// console — "malformed input is normal input" (Design_Portfolio 1).
+/// console. Malformed input is normal input: users mistype formulas.
 ///
 /// Named FormulaInputParser, not FormulaParser: the ANTLR-generated
 /// parser is already CalcEngine.Core.Generated.FormulaParser, and C#
@@ -24,11 +24,19 @@ namespace CalcEngine.Core.Parsing;
 /// </summary>
 public sealed class FormulaInputParser
 {
-    /// <summary>
-    /// Parses raw cell input. Input beginning with '=' is a formula;
-    /// anything else (a bare number, boolean, or quoted string) is a
-    /// literal. Never throws — syntax errors come back in the result.
-    /// </summary>
+    /// <summary>Reads what a user typed into a cell.</summary>
+    /// <param name="rawInput">
+    /// The text to read. Text beginning with "=" is treated as a formula;
+    /// anything else is treated as a plain number, TRUE or FALSE, or quoted
+    /// text.
+    /// </param>
+    /// <returns>
+    /// A result holding the expression that was built, or, if the text could
+    /// not be read, the problems found with it. Mistyped input is reported
+    /// this way rather than by throwing, including a reference that falls
+    /// outside the sheet such as A0.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="rawInput"/> is null.</exception>
     public FormulaParseResult Parse(string rawInput)
     {
         ArgumentNullException.ThrowIfNull(rawInput);

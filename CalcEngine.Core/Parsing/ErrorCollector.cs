@@ -26,13 +26,33 @@ public sealed class ErrorCollector : IAntlrErrorListener<int>, IAntlrErrorListen
     /// <summary>True iff at least one syntax error has been recorded.</summary>
     public bool HasErrors => _errors.Count > 0;
 
-    /// <summary>Lexer-level errors: unrecognized characters, e.g. lowercase letters.</summary>
+    /// <summary>
+    /// Records a character in the input that the formula language does not
+    /// recognise at all, such as a stray symbol.
+    /// </summary>
+    /// <param name="output">Where errors would have been printed. Not used.</param>
+    /// <param name="recognizer">The reader that met the problem.</param>
+    /// <param name="offendingSymbol">The character that could not be read.</param>
+    /// <param name="line">The line the problem occurred on, counting from 1.</param>
+    /// <param name="charPositionInLine">The position within that line, counting from 0.</param>
+    /// <param name="msg">A description of the problem.</param>
+    /// <param name="e">More detail about the problem, if any is available.</param>
     public void SyntaxError(
         TextWriter output, IRecognizer recognizer, int offendingSymbol,
         int line, int charPositionInLine, string msg, RecognitionException e)
         => _errors.Add(Format(line, charPositionInLine, msg));
 
-    /// <summary>Parser-level errors: unexpected tokens, missing closing brackets, etc.</summary>
+    /// <summary>
+    /// Records input that is made of things the formula language knows, but
+    /// arranged in a way it does not allow, such as a missing closing bracket.
+    /// </summary>
+    /// <param name="output">Where errors would have been printed. Not used.</param>
+    /// <param name="recognizer">The reader that met the problem.</param>
+    /// <param name="offendingSymbol">The piece of input that was not expected here.</param>
+    /// <param name="line">The line the problem occurred on, counting from 1.</param>
+    /// <param name="charPositionInLine">The position within that line, counting from 0.</param>
+    /// <param name="msg">A description of the problem.</param>
+    /// <param name="e">More detail about the problem, if any is available.</param>
     public void SyntaxError(
         TextWriter output, IRecognizer recognizer, IToken offendingSymbol,
         int line, int charPositionInLine, string msg, RecognitionException e)
