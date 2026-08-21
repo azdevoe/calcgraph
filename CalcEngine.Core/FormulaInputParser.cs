@@ -48,7 +48,25 @@ public sealed class FormulaInputParser
         if (errorCollector.HasErrors)
             return FormulaParseResult.Failure(errorCollector.Errors);
 
-        var expression = new ExpressionTreeBuilder().Visit(tree);
+        // The grammar's CELLREF/RANGE tokens accept any digit string as
+        // a row (e.g. "A0"), so a syntactically valid parse tree can
+        // still describe a cell outside the sheet (row/column < 1).
+        // CellRef.Parse and CellRefExpression's constructor both guard
+        // that invariant and throw — appropriate for misuse of the
+        // internal API, but this is user-typed formula text, and
+        // "malformed input is normal input" means it must come back as
+        // a FormulaParseResult.Failure, not an exception that escapes
+        // ApplyEdit to the client.
+        IExpression expression;
+        try
+        {
+            expression = new ExpressionTreeBuilder().Visit(tree);
+        }
+        catch (Exception ex) when (ex is FormatException or ArgumentException)
+        {
+            return FormulaParseResult.Failure(new[] { $"Invalid cell reference: {ex.Message}" });
+        }
+
         bool isFormula = tree is AntlrParser.FormulaEntryContext;
 
         return FormulaParseResult.Ok(expression, isFormula);
