@@ -11,5 +11,12 @@ namespace CalcEngine.Core.Filtering;
 /// </summary>
 public sealed class NonEmptyFilter : IRowFilter
 {
+    /// <summary>Decides whether a cell has anything in it.</summary>
+    /// <param name="value">The value to test.</param>
+    /// <returns>
+    /// true for anything other than a cell that was never filled in, errors
+    /// included. A cell holding empty text passes, since something was
+    /// entered there.
+    /// </returns>
     public bool Matches(CellValue value) => value.Kind != ValueKind.Empty;
 }
