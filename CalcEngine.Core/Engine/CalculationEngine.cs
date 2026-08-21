@@ -403,4 +403,27 @@ public sealed class CalculationEngine
         changedCells.AddRange(order);
         return changedCells;
     }
+
+    // ── Public API: state reset & inspection ─────────────────────
+
+    /// <summary>
+    /// Read-only access to the underlying workbook for serialization and inspection.
+    /// </summary>
+    public Workbook Workbook => _workbook;
+
+    /// <summary>
+    /// Clears all cells, graph edges, and command history.
+    /// Used when loading a fresh workbook state from disk.
+    /// </summary>
+    public void Clear()
+    {
+        var allRefs = _workbook.AllCells().Select(c => c.Ref).ToList();
+        foreach (var cellRef in allRefs)
+        {
+            _workbook.Remove(cellRef);
+            _graph.SetDependencies(cellRef, Array.Empty<CellRef>());
+        }
+
+        _commandManager.Clear();
+    }
 }

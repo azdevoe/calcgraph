@@ -111,4 +111,10 @@ public sealed class CommandManager
 
         return result;
     }
+
+    public void Clear()
+    {
+        _undoStack.Clear();
+        _redoStack.Clear();
+    }
 }
