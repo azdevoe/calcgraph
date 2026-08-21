@@ -19,9 +19,14 @@ public sealed class ValidationResult
         ErrorMessage = errorMessage;
     }
 
-    /// <summary>The value satisfied the rule.</summary>
+    /// <summary>Creates a result saying the value is allowed.</summary>
+    /// <returns>A result whose Success is true and whose ErrorMessage is null.</returns>
     public static ValidationResult Ok() => new(success: true, errorMessage: null);
 
-    /// <summary>The value violated the rule, with a client-facing explanation.</summary>
+    /// <summary>Creates a result saying the value is not allowed.</summary>
+    /// <param name="message">
+    /// Why the value was refused, worded so it can be shown to a user.
+    /// </param>
+    /// <returns>A result whose Success is false and which carries the message.</returns>
     public static ValidationResult Fail(string message) => new(success: false, message);
 }

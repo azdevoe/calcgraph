@@ -11,10 +11,16 @@ namespace CalcEngine.Core.Validation;
 /// </summary>
 public interface IValidationRule
 {
-    /// <summary>
-    /// Checks value against this rule. Never throws — a violation comes
-    /// back as ValidationResult.Fail with a client-facing message, the
-    /// same result-as-data shape as CellChangeSet and FormulaParseResult.
-    /// </summary>
+    /// <summary>Checks a value against this rule.</summary>
+    /// <param name="value">The value a cell is about to be given.</param>
+    /// <param name="context">
+    /// Supplies the rest of the workbook, for rules that need to look at other
+    /// cells. Rules that judge the value on its own ignore it.
+    /// </param>
+    /// <returns>
+    /// A result saying whether the value is allowed, and if not, a message
+    /// explaining why that is fit to show a user. A value that breaks the rule
+    /// is reported this way rather than by throwing.
+    /// </returns>
     ValidationResult Validate(CellValue value, IEvalContext context);
 }
