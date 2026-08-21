@@ -5,22 +5,12 @@ using CalcEngine.Core.Model;
 namespace CalcEngine.Core.Commands;
 
 /// <summary>
-/// A reversible single-cell edit (Design_Portfolio 4.9, Fig 9).
+/// A reversible edit to one cell.
 ///
-/// On Execute the command captures the cell's current raw input from
-/// the engine, then writes the new raw input through the internal
-/// ApplyEdit path. On Undo it replays the captured old input through
-/// the same path — or clears the cell if the old input was empty
-/// (i.e. the cell didn't exist before).
-///
-/// This design ensures the dependency graph is always rebuilt by the
-/// same code that maintains it during ordinary editing; cached values
-/// are never restored directly, so the graph and the workbook cannot
-/// drift apart (Design_Portfolio 4.9, Section 6.5 RI).
-///
-/// Note: calls CalculationEngine.ApplyEdit (internal), NOT the public
-/// SetCellContent — the public method routes through CommandManager,
-/// which would cause infinite recursion.
+/// The command remembers the text the cell held before, not the value it
+/// worked out to, so undoing an edit puts the cell back exactly as the
+/// user left it and everything that reads that cell is brought up to date
+/// along with it.
 /// </summary>
 public sealed class SetCellCommand : ICommand
 {
@@ -30,10 +20,13 @@ public sealed class SetCellCommand : ICommand
     private string _oldRawInput = string.Empty;
 
     /// <summary>
-    /// Creates a command that will set <paramref name="cellRef"/> to
-    /// <paramref name="newRawInput"/> when executed. The previous
-    /// content is captured automatically at Execute time.
+    /// Creates an edit that has not been carried out yet.
     /// </summary>
+    /// <param name="engine">The engine holding the cell to edit.</param>
+    /// <param name="cellRef">The cell to edit.</param>
+    /// <param name="newRawInput">
+    /// The text to put in the cell. An empty string empties the cell.
+    /// </param>
     public SetCellCommand(CalculationEngine engine, CellRef cellRef, string newRawInput)
     {
         _engine = engine;
@@ -41,7 +34,13 @@ public sealed class SetCellCommand : ICommand
         _newRawInput = newRawInput;
     }
 
-    /// <inheritdoc />
+    /// <summary>Puts the new text in the cell.</summary>
+    /// <returns>
+    /// The cells whose values changed as a result, or the reason the edit was
+    /// refused. An edit is refused if the text cannot be read as a formula,
+    /// if it would make the cell depend on itself, or if it breaks a
+    /// validation rule set on the cell; in each case nothing changes.
+    /// </returns>
     public CellChangeSet Execute()
     {
         // Capture what the cell holds right now so Undo can restore it.
@@ -51,7 +50,11 @@ public sealed class SetCellCommand : ICommand
         return _engine.ApplyEdit(_cellRef, _newRawInput);
     }
 
-    /// <inheritdoc />
+    /// <summary>Puts the cell back to the text it held before the edit.</summary>
+    /// <returns>
+    /// The cells whose values changed as a result. A cell that did not exist
+    /// before the edit is emptied again.
+    /// </returns>
     public CellChangeSet Undo()
     {
         // An empty old input means the cell didn't exist before this
