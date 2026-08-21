@@ -1,4 +1,8 @@
 using CalcEngine.Core;
+using CalcEngine.Core.ChangeTracking;
+using CalcEngine.Core.Engine;
+using CalcEngine.Core.Model;
+using CalcEngine.Core.Validation;
 
 namespace CalcEngine.Gui;
 
@@ -96,7 +100,7 @@ public partial class Form1 : Form, ICellObserver
     }
     private void BuildGrid()
     {
-        _grid.RowHeadersWidth = 40;
+        _grid.RowHeadersWidth = 80;
         _grid.ColumnHeadersVisible = true;
         _grid.ColumnHeadersHeight = 28;
         _grid.RowHeadersVisible = true;
@@ -315,5 +319,10 @@ public partial class Form1 : Form, ICellObserver
         _engine.ClearValidationRule(cellRef);
         _statusLabel.Text = $"Rule cleared on {cellRef.ToA1()}";
         _statusLabel.BackColor = Color.WhiteSmoke;
+    }
+
+    private void Form1_Load(object sender, EventArgs e)
+    {
+
     }
 }
