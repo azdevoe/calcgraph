@@ -169,6 +169,35 @@ public sealed class CalculationEngine
         return changeSet;
     }
 
+    // ── Public API: sorting (Group C feature) ───────────────────────
+
+    /// <summary>
+    /// Sorts range's rows by keys (first key primary, later keys break
+    /// ties), moving whole rows — every column of range travels with
+    /// its row, not just the sort-key columns. hasHeader excludes
+    /// range's first row from reordering.
+    ///
+    /// A moved formula has every cell reference inside it translated by
+    /// that row's own move delta (RangeSorter Option B: Excel's actual
+    /// move semantics, not copy semantics — see SortRangeCommand). A
+    /// rejected write anywhere in the range (a validation rule, a
+    /// cycle introduced by the move) rolls back the entire sort, the
+    /// same all-or-nothing guarantee a single rejected edit gives.
+    /// Applied as one undoable operation and one batched recalculation.
+    /// </summary>
+    public CellChangeSet SortRange(CellRange range, IReadOnlyList<SortKey> keys, bool hasHeader = false)
+    {
+        ArgumentNullException.ThrowIfNull(keys);
+        if (keys.Count == 0)
+            throw new ArgumentException("At least one sort key is required.", nameof(keys));
+        foreach (var key in keys)
+            if (key.Column < range.TopLeft.Column || key.Column > range.BottomRight.Column)
+                throw new ArgumentException(
+                    $"Sort key column {key.Column} is outside range {range}.", nameof(keys));
+
+        return _commandManager.ExecuteCommand(new SortRangeCommand(this, range, keys, hasHeader));
+    }
+
     // ── Public API: bulk recalculation ─────────────────────────────
 
     /// <summary>
@@ -309,6 +338,13 @@ public sealed class CalculationEngine
         _notifier.NotifyChanged(changeSet);
         return changeSet;
     }
+
+    /// <summary>
+    /// The cached parsed tree for cellRef, or null if it holds no
+    /// formula (literal, empty, or absent). Used by SortRangeCommand to
+    /// translate a moved formula's references without re-parsing it.
+    /// </summary>
+    internal IExpression? GetTree(CellRef cellRef) => _workbook.TryGet(cellRef)?.Tree;
 
     /// <summary>
     /// Recomputes every cell downstream of cellRef, in dependency
