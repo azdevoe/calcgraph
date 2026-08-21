@@ -3,7 +3,8 @@ namespace CalcEngine.Gui;
 static class Program
 {
     /// <summary>
-    ///  The main entry point for the application.
+    /// Starts the demonstration client and shows the spreadsheet window.
+    /// Returns once the user closes it.
     /// </summary>
     [STAThread]
     static void Main()

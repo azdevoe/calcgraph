@@ -51,6 +51,10 @@ public partial class Form1 : Form, ICellObserver
     private static readonly Color ErrorColor = Color.MistyRose;
     private static readonly Color NormalColor = Color.White;
 
+    /// <summary>
+    /// Creates the spreadsheet window, ready for the user to type in, and
+    /// signs it up to be told whenever the engine changes anything.
+    /// </summary>
     public Form1()
     {
         InitializeComponent();
@@ -62,6 +66,11 @@ public partial class Form1 : Form, ICellObserver
 
     // ── Layout ───────────────────────────────────────────────────
 
+    /// <summary>
+    /// Puts the window together: the toolbar along the top, the formula bar
+    /// beneath it, the status line along the bottom, and the grid filling
+    /// what is left.
+    /// </summary>
     private void BuildLayout()
     {
         var toolbar = new Panel { Dock = DockStyle.Top, Height = 34 };
@@ -189,6 +198,13 @@ public partial class Form1 : Form, ICellObserver
 
     // ── Grid <-> CellRef mapping ─────────────────────────────────
 
+    /// <summary>
+    /// Moves the selection to the cell that was right-clicked, so the
+    /// right-click menu acts on the cell the user pointed at rather than the
+    /// one that happened to be selected already.
+    /// </summary>
+    /// <param name="sender">The grid that was clicked.</param>
+    /// <param name="e">Which button was pressed, and over which cell.</param>
     private void OnCellMouseDown(object? sender, DataGridViewCellMouseEventArgs e)
     {
         if (e.Button == MouseButtons.Right && e.RowIndex >= 0 && e.ColumnIndex >= 0)
@@ -196,12 +212,30 @@ public partial class Form1 : Form, ICellObserver
             _grid.CurrentCell = _grid.Rows[e.RowIndex].Cells[e.ColumnIndex];
         }
     }
+    /// <summary>Turns a position in the grid into the cell address it stands for.</summary>
+    /// <param name="rowIndex">The grid row, counting from 0.</param>
+    /// <param name="colIndex">The grid column, counting from 0.</param>
+    /// <returns>The matching address, which counts from 1.</returns>
     private static CellRef ToCellRef(int rowIndex, int colIndex) =>
         new(rowIndex + 1, colIndex + 1);
 
+    /// <summary>Returns the heading to put above a grid column.</summary>
+    /// <param name="colIndex">The grid column, counting from 0.</param>
+    /// <returns>A single letter, from "A" for the first column.</returns>
     private static string ColumnLetter(int colIndex) =>
         ((char)('A' + colIndex)).ToString();
 
+    /// <summary>
+    /// Finds where a cell sits in the grid, if it is on screen at all.
+    /// </summary>
+    /// <param name="cellRef">The address to look for.</param>
+    /// <param name="rowIndex">When this returns, the grid row holding it.</param>
+    /// <param name="colIndex">When this returns, the grid column holding it.</param>
+    /// <returns>
+    /// true if the address falls inside the part of the sheet the grid shows;
+    /// otherwise, false. The engine has no fixed size, so a formula may well
+    /// refer to cells beyond the displayed rows and columns.
+    /// </returns>
     private bool TryToGridPosition(CellRef cellRef, out int rowIndex, out int colIndex)
     {
         rowIndex = cellRef.Row - 1;
@@ -211,6 +245,13 @@ public partial class Form1 : Form, ICellObserver
 
     // ── Editing ──────────────────────────────────────────────────
 
+    /// <summary>
+    /// Swaps a cell's displayed result for the text behind it as editing
+    /// starts, so the user edits the formula they wrote rather than the number
+    /// it produced.
+    /// </summary>
+    /// <param name="sender">The grid being edited.</param>
+    /// <param name="e">Which cell is about to be edited.</param>
     private void OnCellBeginEdit(object? sender, DataGridViewCellCancelEventArgs e)
     {
         // Show the raw formula/text for editing, not the computed value.
@@ -218,6 +259,18 @@ public partial class Form1 : Form, ICellObserver
         _grid.Rows[e.RowIndex].Cells[e.ColumnIndex].Value = _engine.GetFormula(cellRef);
     }
 
+    /// <summary>
+    /// Hands what the user typed to the engine once they finish editing a
+    /// cell.
+    /// </summary>
+    /// <param name="sender">The grid being edited.</param>
+    /// <param name="e">Which cell was edited.</param>
+    /// <remarks>
+    /// If the engine turns the edit down, the cell goes back to showing what
+    /// it really holds, is tinted to draw the eye, and the status line explains
+    /// what was wrong. Nothing is lost, because a refused edit never changed
+    /// anything in the first place.
+    /// </remarks>
     private void OnCellEndEdit(object? sender, DataGridViewCellEventArgs e)
     {
         var cellRef = ToCellRef(e.RowIndex, e.ColumnIndex);
@@ -246,6 +299,12 @@ public partial class Form1 : Form, ICellObserver
         UpdateUndoRedoButtons();
     }
 
+    /// <summary>Puts a refused edit into words for the status line.</summary>
+    /// <param name="result">The refusal to describe.</param>
+    /// <returns>
+    /// A sentence naming what went wrong: the syntax problem, the loop of
+    /// cells that led back on itself, or the rule the value broke.
+    /// </returns>
     private static string DescribeFailure(CellChangeSet result) => result.FailureReason switch
     {
         ChangeFailureReason.ParseError => $"Syntax error: {result.ErrorMessage}",
@@ -254,15 +313,35 @@ public partial class Form1 : Form, ICellObserver
         _ => "Edit rejected."
     };
 
+    /// <summary>Returns what a cell should show in the grid.</summary>
+    /// <param name="cellRef">The cell to read.</param>
+    /// <returns>
+    /// The cell's value as text, which for a cell in error is the usual
+    /// spreadsheet marker such as "#DIV/0!".
+    /// </returns>
     private string DisplayValueFor(CellRef cellRef) => _engine.GetValue(cellRef).ToString();
 
+    /// <summary>Tints a cell to show that something about it was refused.</summary>
+    /// <param name="rowIndex">The grid row holding the cell.</param>
+    /// <param name="colIndex">The grid column holding the cell.</param>
     private void FlashError(int rowIndex, int colIndex)
     {
         _grid.Rows[rowIndex].Cells[colIndex].Style.BackColor = ErrorColor;
     }
 
-    // ── Observer callbacks (Design_Portfolio: Observer pattern) ────
+    // ── Observer callbacks ────────────────────────────────────────
 
+    /// <summary>
+    /// Redraws the cells the engine reports as changed, tinting any that ended
+    /// up in error.
+    /// </summary>
+    /// <param name="changeSet">The cells whose values changed.</param>
+    /// <remarks>
+    /// This is how a single edit updates everything that depends on it: the
+    /// grid is told once, with the whole set, and never has to work out for
+    /// itself which cells to refresh. Cells outside the displayed area are
+    /// skipped.
+    /// </remarks>
     public void OnCellsChanged(CellChangeSet changeSet)
     {
         foreach (var cellRef in changeSet.ChangedCells)
@@ -281,6 +360,15 @@ public partial class Form1 : Form, ICellObserver
         RefreshFilterVisibility();
     }
 
+    /// <summary>
+    /// Reports a refused edit that would have made a cell depend on itself,
+    /// naming the loop in the status line and tinting every cell caught up in
+    /// it.
+    /// </summary>
+    /// <param name="cyclePath">
+    /// The cells that lead round the loop, with the edited cell appearing
+    /// again at the end.
+    /// </param>
     public void OnCircularReference(IReadOnlyList<CellRef> cyclePath)
     {
         _statusLabel.Text = $"Circular reference: {string.Join(" \u2192 ", cyclePath.Select(c => c.ToA1()))}";
@@ -293,8 +381,15 @@ public partial class Form1 : Form, ICellObserver
 
     // ── Selection / formula bar ─────────────────────────────────────
 
+    /// <summary>Keeps the formula bar in step as the user moves around the grid.</summary>
+    /// <param name="sender">The grid whose selection moved.</param>
+    /// <param name="e">Carries no extra detail.</param>
     private void OnSelectionChanged(object? sender, EventArgs e) => UpdateFormulaBar();
 
+    /// <summary>
+    /// Shows the selected cell's address and the text behind it in the formula
+    /// bar. Does nothing when no cell is selected.
+    /// </summary>
     private void UpdateFormulaBar()
     {
         if (_grid.CurrentCell is null) return;
@@ -306,12 +401,19 @@ public partial class Form1 : Form, ICellObserver
 
     // ── Undo / Redo ──────────────────────────────────────────────
 
+    /// <summary>Handles the undo and redo keyboard shortcuts.</summary>
+    /// <param name="sender">The window the key was pressed in.</param>
+    /// <param name="e">Which key was pressed, and with which modifiers.</param>
     private void OnFormKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Control && e.KeyCode == Keys.Z) { TryUndo(); e.Handled = true; }
         if (e.Control && e.KeyCode == Keys.Y) { TryRedo(); e.Handled = true; }
     }
 
+    /// <summary>
+    /// Undoes the last operation and brings the window back into step with it.
+    /// Does nothing when there is nothing to undo.
+    /// </summary>
     private void TryUndo()
     {
         if (!_engine.CanUndo) return;
@@ -325,6 +427,10 @@ public partial class Form1 : Form, ICellObserver
         RefreshFilterVisibility();
     }
 
+    /// <summary>
+    /// Carries out the last undone operation again and brings the window back
+    /// into step with it. Does nothing when there is nothing to redo.
+    /// </summary>
     private void TryRedo()
     {
         if (!_engine.CanRedo) return;
@@ -334,6 +440,10 @@ public partial class Form1 : Form, ICellObserver
         RefreshFilterVisibility();
     }
 
+    /// <summary>
+    /// Greys out the undo and redo buttons when there is nothing for them to
+    /// do.
+    /// </summary>
     private void UpdateUndoRedoButtons()
     {
         _undoButton.Enabled = _engine.CanUndo;
@@ -342,6 +452,11 @@ public partial class Form1 : Form, ICellObserver
 
     // ── Data validation rule assignment (Group C feature) ───────────
 
+    /// <summary>
+    /// Asks the user for a lower and upper bound, then holds the selected cell
+    /// to it from now on. Does nothing if they cancel, or if no cell is
+    /// selected. The value already in the cell is left alone.
+    /// </summary>
     private void SetRangeRuleOnSelectedCell()
     {
         if (_grid.CurrentCell is null) return;
@@ -356,6 +471,10 @@ public partial class Form1 : Form, ICellObserver
         }
     }
 
+    /// <summary>
+    /// Lifts any validation rule from the selected cell. Does nothing if no
+    /// cell is selected, and is harmless if the cell had no rule.
+    /// </summary>
     private void ClearRuleOnSelectedCell()
     {
         if (_grid.CurrentCell is null) return;
@@ -365,14 +484,16 @@ public partial class Form1 : Form, ICellObserver
         _statusLabel.BackColor = Color.WhiteSmoke;
     }
 
-    // ── Sorting & Filtering (Group C feature) ────────────────────────
+    // ── Sorting and Filtering (Group C feature) ──────────────────────
 
-    /// <summary>
-    /// The rectangular CellRange covering the grid's current selection,
-    /// or false if nothing is selected. SortRange/SetFilter both take a
-    /// CellRange, so this is the one place the grid's selection state
-    /// is translated into the engine's addressing.
-    /// </summary>
+    /// <summary>Works out which range of cells the user has selected.</summary>
+    /// <param name="range">
+    /// When this returns, the smallest rectangle covering every selected cell.
+    /// A selection with gaps in it is squared off into that rectangle.
+    /// </param>
+    /// <returns>
+    /// true if anything was selected; otherwise, false.
+    /// </returns>
     private bool TryGetSelectedRange(out CellRange range)
     {
         range = default;
@@ -391,6 +512,14 @@ public partial class Form1 : Form, ICellObserver
         return true;
     }
 
+    /// <summary>
+    /// Asks the user how to sort the selected range, then sorts it.
+    /// </summary>
+    /// <remarks>
+    /// Says so in the status line if nothing is selected, or if the sort is
+    /// turned down because a moved formula would end up pointing off the
+    /// sheet. A sort that is turned down leaves the range exactly as it was.
+    /// </remarks>
     private void ShowSortDialog()
     {
         if (!TryGetSelectedRange(out var range))
@@ -424,6 +553,10 @@ public partial class Form1 : Form, ICellObserver
         // when the sort succeeds; a rejected sort touched nothing.
     }
 
+    /// <summary>
+    /// Asks the user how to filter the selected range, then hides the rows
+    /// that do not match. Says so in the status line if nothing is selected.
+    /// </summary>
     private void ShowFilterDialog()
     {
         if (!TryGetSelectedRange(out var range))
@@ -447,6 +580,10 @@ public partial class Form1 : Form, ICellObserver
         _statusLabel.BackColor = Color.WhiteSmoke;
     }
 
+    /// <summary>
+    /// Lifts every filter currently in force and shows all the rows again.
+    /// Says so in the status line if no filter was in force.
+    /// </summary>
     private void ClearActiveFilter()
     {
         if (_activeFilterRange is not { } range)
@@ -471,11 +608,15 @@ public partial class Form1 : Form, ICellObserver
     }
 
     /// <summary>
-    /// Hides every row of the active filter range that GetVisibleRows
-    /// no longer reports, and shows every one it does. A no-op when no
-    /// filter is active. Filtering never touches a cell's value or
-    /// formula — only DataGridViewRow.Visible changes here.
+    /// Brings the shown and hidden rows back into line with whatever filter is
+    /// in force. Does nothing when there is no filter.
     /// </summary>
+    /// <remarks>
+    /// Worth doing again after any edit, since a changed value can move a row
+    /// in or out of a filter, and a sort can move the very rows the filter is
+    /// watching. Only which rows are shown changes; no value or formula is
+    /// touched.
+    /// </remarks>
     private void RefreshFilterVisibility()
     {
         if (_activeFilterRange is not { } range) return;
@@ -488,6 +629,12 @@ public partial class Form1 : Form, ICellObserver
         }
     }
 
+    /// <summary>
+    /// Runs when the window first opens. Nothing is left to do here: the grid
+    /// and its controls are already built by the constructor.
+    /// </summary>
+    /// <param name="sender">The window being opened.</param>
+    /// <param name="e">Carries no extra detail.</param>
     private void Form1_Load(object sender, EventArgs e)
     {
 

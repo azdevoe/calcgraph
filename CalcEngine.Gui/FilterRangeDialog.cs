@@ -5,7 +5,7 @@ namespace CalcEngine.Gui;
 
 /// <summary>
 /// Modal dialog for CalculationEngine.SetFilter (Group C feature:
-/// Sorting &amp; Filtering) — picks a column (within the range the grid
+/// Sorting and Filtering) — picks a column (within the range the grid
 /// had selected) and one of the three IRowFilter strategies already in
 /// CalcEngine.Core. No designer file, same approach as RangeRuleDialog.
 /// </summary>
@@ -24,12 +24,23 @@ public sealed class FilterRangeDialog : Form
 
     private readonly int _firstColumn;
 
-    /// <summary>Absolute column number (CellRef.Column) chosen to filter on.</summary>
+    /// <summary>
+    /// Gets the column the user chose to filter on, counting from 1 at column
+    /// A. Only meaningful once the user has accepted the dialog.
+    /// </summary>
     public int SelectedColumn { get; private set; }
 
-    /// <summary>The filter built from whichever inputs were visible when OK was pressed.</summary>
+    /// <summary>
+    /// Gets the filter the user described, or null if they have not accepted
+    /// the dialog.
+    /// </summary>
     public IRowFilter? Filter { get; private set; }
 
+    /// <summary>Creates the dialog for a range the user has selected.</summary>
+    /// <param name="range">
+    /// The range about to be filtered. Only its columns are offered as
+    /// choices, so the user cannot pick one that lies outside it.
+    /// </param>
     public FilterRangeDialog(CellRange range)
     {
         _firstColumn = range.TopLeft.Column;
@@ -78,6 +89,11 @@ public sealed class FilterRangeDialog : Form
         UpdateInputVisibility();
     }
 
+    /// <summary>
+    /// Shows only the inputs that belong to the kind of filter the user has
+    /// picked, so the bounds are offered for a number filter and the search
+    /// text for a text filter.
+    /// </summary>
     private void UpdateInputVisibility()
     {
         bool isNumberRange = _typeCombo.SelectedIndex == 0;
@@ -92,6 +108,10 @@ public sealed class FilterRangeDialog : Form
         _textInput.Visible = isTextContains;
     }
 
+    /// <summary>
+    /// Reads the user's choices into SelectedColumn and Filter, ready for the
+    /// caller to collect once the dialog closes.
+    /// </summary>
     private void BuildResult()
     {
         SelectedColumn = _firstColumn + _columnCombo.SelectedIndex;
@@ -104,7 +124,9 @@ public sealed class FilterRangeDialog : Form
         };
     }
 
-    /// <summary>1-based column number to A1-style letters — the same rule as CellRef.ToA1.</summary>
+    /// <summary>Turns a column number into the letters a user recognises.</summary>
+    /// <param name="column">The column number, counting from 1 at column A.</param>
+    /// <returns>The column letters, so 27 gives "AA".</returns>
     private static string ColumnLetter(int column)
     {
         var buf = new Stack<char>();

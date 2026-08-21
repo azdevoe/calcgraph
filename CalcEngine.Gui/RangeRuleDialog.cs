@@ -10,9 +10,16 @@ public sealed class RangeRuleDialog : Form
     private readonly NumericUpDown _minInput = new() { Minimum = -1000000, Maximum = 1000000, Width = 100 };
     private readonly NumericUpDown _maxInput = new() { Minimum = -1000000, Maximum = 1000000, Width = 100, Value = 100 };
 
+    /// <summary>Gets the lowest value the user chose to allow.</summary>
     public double Min => (double)_minInput.Value;
+
+    /// <summary>Gets the highest value the user chose to allow.</summary>
     public double Max => (double)_maxInput.Value;
 
+    /// <summary>
+    /// Creates the dialog, with the bounds starting at 0 and 100 until the
+    /// user changes them.
+    /// </summary>
     public RangeRuleDialog()
     {
         Text = "Set Range Rule";
