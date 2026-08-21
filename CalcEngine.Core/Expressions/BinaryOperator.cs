@@ -6,17 +6,33 @@ namespace CalcEngine.Core.Expressions;
 /// </summary>
 public enum BinaryOperator
 {
-    // Arithmetic
+    /// <summary>Addition, written +.</summary>
     Add,
+
+    /// <summary>Subtraction, written -.</summary>
     Subtract,
+
+    /// <summary>Multiplication, written *.</summary>
     Multiply,
+
+    /// <summary>Division, written /. Dividing by zero gives #DIV/0!.</summary>
     Divide,
 
-    // Comparison
+    /// <summary>Equality, written =.</summary>
     Equal,
+
+    /// <summary>Inequality, written as a less-than sign followed by a greater-than sign.</summary>
     NotEqual,
+
+    /// <summary>Less than.</summary>
     LessThan,
+
+    /// <summary>Less than or equal to.</summary>
     LessOrEqual,
+
+    /// <summary>Greater than.</summary>
     GreaterThan,
+
+    /// <summary>Greater than or equal to.</summary>
     GreaterOrEqual
 }

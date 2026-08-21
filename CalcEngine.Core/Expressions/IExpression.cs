@@ -13,14 +13,23 @@ namespace CalcEngine.Core.Expressions;
 /// </summary>
 public interface IExpression
 {
-    /// <summary>
-    /// Computes the value of this expression under context.
-    /// Never throws; type errors and missing references produce error values.
-    /// </summary>
+    /// <summary>Works out what this expression is worth.</summary>
+    /// <param name="context">
+    /// Supplies the cell values the expression reads. Pass the workbook the
+    /// formula belongs to.
+    /// </param>
+    /// <returns>
+    /// The value of the expression. A problem such as a type mismatch or a
+    /// division by zero comes back as an error value; this method does not
+    /// throw for bad data.
+    /// </returns>
     CellValue Evaluate(IEvalContext context);
 
     /// <summary>
-    /// Dispatches to the visitor method for this node's concrete type.
+    /// Calls the visitor method that matches this node's type.
     /// </summary>
+    /// <typeparam name="T">The type of result the visitor produces.</typeparam>
+    /// <param name="visitor">The visitor to call back into.</param>
+    /// <returns>Whatever the visitor returns for this node.</returns>
     T Accept<T>(IExpressionVisitor<T> visitor);
 }
