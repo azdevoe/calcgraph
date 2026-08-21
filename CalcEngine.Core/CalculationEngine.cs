@@ -31,6 +31,12 @@ public sealed class CalculationEngine
     private readonly CommandManager _commandManager = new();
     private readonly ValidationRegistry _validationRegistry = new();
 
+    // Batch state (Group C feature: Sorting & Filtering — a sort must
+    // cost one topological sort, not one per moved cell). See
+    // BeginBatch/EndBatch.
+    private int _batchDepth;
+    private readonly HashSet<CellRef> _batchRoots = new();
+
     // ── Public API: editing ────────────────────────────────────────
 
     /// <summary>
@@ -111,6 +117,57 @@ public sealed class CalculationEngine
     /// <summary>Removes any validation rule attached to cellRef. A no-op if none was set.</summary>
     public void ClearValidationRule(CellRef cellRef) =>
         _validationRegistry.ClearRule(cellRef);
+
+    // ── Public API: batching (Group C feature support) ──────────────
+
+    /// <summary>
+    /// Starts deferring recalculation: edits made through ApplyEdit
+    /// while a batch is open update the workbook and dependency graph
+    /// immediately (so cycle detection and validation still run per
+    /// edit) but do not recompute dependents or notify observers until
+    /// the matching EndBatch. Nestable — only the outermost EndBatch
+    /// triggers the recompute pass. Bulk operations like SortRange use
+    /// this so moving N cells costs one topological sort, not N.
+    /// </summary>
+    public void BeginBatch() => _batchDepth++;
+
+    /// <summary>
+    /// Ends the innermost open batch. If this was the outermost
+    /// BeginBatch, recomputes every cell affected by any edit made
+    /// during the batch — in one topological pass — and raises one
+    /// change notification covering all of them.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">No batch is open.</exception>
+    public CellChangeSet EndBatch()
+    {
+        if (_batchDepth == 0)
+            throw new InvalidOperationException("EndBatch called without a matching BeginBatch.");
+
+        _batchDepth--;
+        if (_batchDepth > 0)
+            return CellChangeSet.Ok(default, Array.Empty<CellRef>());
+
+        var roots = _batchRoots.ToList();
+        _batchRoots.Clear();
+
+        var affected = new HashSet<CellRef>(roots);
+        foreach (var root in roots)
+            foreach (var d in _graph.GetAffectedCells(root))
+                affected.Add(d);
+
+        var order = _graph.TopologicalSort(affected);
+        foreach (var r in order)
+        {
+            var cell = _workbook.TryGet(r);
+            if (cell is { IsFormula: true })
+                cell.SetValue(cell.Tree!.Evaluate(_workbook));
+        }
+
+        var edited = roots.Count > 0 ? roots[0] : default;
+        var changeSet = CellChangeSet.Ok(edited, order);
+        _notifier.NotifyChanged(changeSet);
+        return changeSet;
+    }
 
     // ── Public API: bulk recalculation ─────────────────────────────
 
@@ -219,6 +276,12 @@ public sealed class CalculationEngine
             cell.SetLiteral(rawInput, candidateValue);
         }
 
+        if (_batchDepth > 0)
+        {
+            _batchRoots.Add(cellRef);
+            return CellChangeSet.Ok(cellRef, new List<CellRef> { cellRef });
+        }
+
         var changedCells = RecomputeAffected(cellRef);
 
         var changeSet = CellChangeSet.Ok(cellRef, changedCells);
@@ -233,6 +296,12 @@ public sealed class CalculationEngine
     {
         _graph.SetDependencies(cellRef, Array.Empty<CellRef>());
         _workbook.Remove(cellRef);
+
+        if (_batchDepth > 0)
+        {
+            _batchRoots.Add(cellRef);
+            return CellChangeSet.Ok(cellRef, new List<CellRef> { cellRef });
+        }
 
         var changedCells = RecomputeAffected(cellRef);
 
