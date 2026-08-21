@@ -1,4 +1,4 @@
-using CalcEngine.Core;
+using CalcEngine.Core.Model;
 
 namespace CalcEngine.Gui;
 

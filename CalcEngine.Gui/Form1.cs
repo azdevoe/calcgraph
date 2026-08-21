@@ -1,4 +1,8 @@
-using CalcEngine.Core;
+using CalcEngine.Core.Sorting;
+using CalcEngine.Core.ChangeTracking;
+using CalcEngine.Core.Engine;
+using CalcEngine.Core.Model;
+using CalcEngine.Core.Validation;
 
 namespace CalcEngine.Gui;
 
@@ -129,7 +133,7 @@ public partial class Form1 : Form, ICellObserver
     }
     private void BuildGrid()
     {
-        _grid.RowHeadersWidth = 40;
+        _grid.RowHeadersWidth = 80;
         _grid.ColumnHeadersVisible = true;
         _grid.ColumnHeadersHeight = 28;
         _grid.RowHeadersVisible = true;
@@ -482,5 +486,10 @@ public partial class Form1 : Form, ICellObserver
             if (!TryToGridPosition(new CellRef(r, range.TopLeft.Column), out var rowIndex, out _)) continue;
             _grid.Rows[rowIndex].Visible = visibleRows.Contains(r);
         }
+    }
+
+    private void Form1_Load(object sender, EventArgs e)
+    {
+
     }
 }

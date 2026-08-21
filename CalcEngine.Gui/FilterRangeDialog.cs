@@ -1,4 +1,5 @@
-using CalcEngine.Core;
+using CalcEngine.Core.Filtering;
+using CalcEngine.Core.Model;
 
 namespace CalcEngine.Gui;
 

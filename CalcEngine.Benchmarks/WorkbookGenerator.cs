@@ -1,4 +1,5 @@
-using CalcEngine.Core;
+using CalcEngine.Core.Engine;
+using CalcEngine.Core.Model;
 
 namespace CalcEngine.Benchmarks;
 

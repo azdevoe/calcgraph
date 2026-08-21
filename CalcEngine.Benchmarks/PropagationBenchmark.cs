@@ -1,5 +1,5 @@
 using System.Diagnostics;
-using CalcEngine.Core;
+using CalcEngine.Core.Engine;
 
 namespace CalcEngine.Benchmarks;
 
