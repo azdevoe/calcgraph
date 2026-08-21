@@ -2,8 +2,15 @@ namespace CalcEngine.Core;
 
 /// <summary>
 /// Leaf: a rectangular cell range, e.g. B2:B45.
-/// RI clause 4: appears only as a direct function argument,
-/// never as an operand of a BinaryExpression or UnaryExpression.
+///
+/// The grammar's `atom` rule admits a bare RANGE anywhere any other
+/// atom is legal (`atom : ... | RANGE # RangeAtom | ...`), so a range
+/// can in fact appear as an operand of BinaryExpression or
+/// UnaryExpression — `=B2:B3+1` parses successfully. There is no
+/// parse-time restriction to a function-argument position; Evaluate
+/// below is what turns that case into #VALUE!, the same way a real
+/// spreadsheet reports "a range where a scalar was expected" as a
+/// value, not a syntax error.
 /// </summary>
 public sealed class RangeExpression : IExpression
 {
