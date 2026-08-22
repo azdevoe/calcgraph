@@ -5,3 +5,5 @@ obj/
 *.user
 TestResults/
 "@ | Out-File -Encoding ascii .gitignore
+CSC322-2025-2026 project.pdf
+CSC322-Calculation-Engine-Project-Plan.md
