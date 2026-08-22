@@ -1,0 +1,68 @@
+@startuml Engine
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 75
+skinparam ranksep 85
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+skinparam packageStyle rectangle
+top to bottom direction
+
+title CalcEngine.Core.Engine — Façade Composition
+
+class CalculationEngine {
+    __editing__
+    + SetCellContent(cellRef, rawInput) : CellChangeSet
+    + ClearCell(cellRef) : CellChangeSet
+    ~ ApplyEdit(cellRef, rawInput) : CellChangeSet
+    __querying__
+    + GetValue(cellRef) : CellValue
+    + GetFormula(cellRef) : string
+    + Workbook : Workbook
+    __undo / redo__
+    + CanUndo : bool
+    + CanRedo : bool
+    + Undo() : CellChangeSet
+    + Redo() : CellChangeSet
+    __validation__
+    + SetValidationRule(cellRef, rule)
+    + ClearValidationRule(cellRef)
+    __sorting / filtering__
+    + SortRange(range, keys, hasHeader) : CellChangeSet
+    + SetFilter(range, column, filter) : CellChangeSet
+    + ClearFilter(range, column) : CellChangeSet
+    + GetVisibleRows(range) : IReadOnlyList<int>
+    __batching / lifecycle__
+    + BeginBatch()
+    + EndBatch() : CellChangeSet
+    + RecalculateAll()
+    + Clear()
+    __observers__
+    + Subscribe(observer)
+    + Unsubscribe(observer)
+}
+
+class Workbook
+class DependencyGraph
+class FormulaInputParser
+class ChangeNotifier
+class CommandManager
+class ValidationRegistry
+class FilterManager
+
+CalculationEngine *-down- Workbook
+CalculationEngine *-down- DependencyGraph
+CalculationEngine *-down- FormulaInputParser
+CalculationEngine *-down- ChangeNotifier
+CalculationEngine *-down- CommandManager
+CalculationEngine *-down- ValidationRegistry
+CalculationEngine *-down- FilterManager
+
+Workbook -[hidden]right- DependencyGraph
+DependencyGraph -[hidden]right- FormulaInputParser
+FormulaInputParser -[hidden]right- ChangeNotifier
+ChangeNotifier -[hidden]right- CommandManager
+CommandManager -[hidden]right- ValidationRegistry
+ValidationRegistry -[hidden]right- FilterManager
+
+@enduml

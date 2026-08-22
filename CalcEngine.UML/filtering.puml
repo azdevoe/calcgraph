@@ -1,0 +1,50 @@
+@startuml Filtering
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 75
+skinparam ranksep 80
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+top to bottom direction
+
+title CalcEngine.Core.Filtering
+
+interface IRowFilter {
+    + Matches(value : CellValue) : bool
+}
+
+class FilterManager {
+    - _filters : Dictionary<(CellRange, int), IRowFilter>
+    + GetFilter(range, column) : IRowFilter?
+    + SetFilter(range, column, filter)
+    + ClearFilter(range, column)
+    + ClearAllFilters(range)
+    + GetVisibleRows(range, context) : IReadOnlyList<int>
+}
+
+class NonEmptyFilter {
+    + Matches(value) : bool
+}
+
+class NumberRangeFilter {
+    + Min : double
+    + Max : double
+    + Matches(value) : bool
+}
+
+class TextContainsFilter {
+    + Substring : string
+    + IgnoreCase : bool
+    + Matches(value) : bool
+}
+
+NonEmptyFilter ..|> IRowFilter
+NumberRangeFilter ..|> IRowFilter
+TextContainsFilter ..|> IRowFilter
+FilterManager "1" o-up- "0..*" IRowFilter
+
+NonEmptyFilter -[hidden]right- NumberRangeFilter
+NumberRangeFilter -[hidden]right- TextContainsFilter
+FilterManager -[hidden]down- IRowFilter
+
+@enduml

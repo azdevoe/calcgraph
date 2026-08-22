@@ -1,0 +1,76 @@
+@startuml Functions
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 55
+skinparam ranksep 80
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+top to bottom direction
+
+title CalcEngine.Core.Functions — Strategy + Factory
+
+interface IFunctionStrategy {
+    + Name : string
+    + MinArgs : int
+    + MaxArgs : int
+    + Evaluate(args, context) : CellValue
+}
+
+class FunctionFactory {
+    - _strategies : Dictionary<string, IFunctionStrategy>
+    + Register(strategy)
+    + Evaluate(name, args, context) : CellValue
+    + {static} CreateDefault() : FunctionFactory
+}
+
+class FunctionHelpers <<static, internal>> {
+    + {static} FlattenArgs(args, context) : IEnumerable<CellValue>
+}
+
+class SumStrategy { 
+    Name = "SUM" 
+}
+class AverageStrategy { 
+    Name = "AVERAGE" 
+}
+class MinStrategy { 
+    Name = "MIN" 
+}
+class MaxStrategy {     
+    Name = "MAX" 
+}
+class CountStrategy { 
+    Name = "COUNT" 
+}
+class IfStrategy { 
+    Name = "IF" 
+}
+class RoundStrategy <<from Expressions>> { 
+    Name = "ROUND" 
+}
+class LookupStrategy { 
+    Name = "LOOKUP" 
+}
+
+SumStrategy ..|> IFunctionStrategy
+AverageStrategy ..|> IFunctionStrategy
+MinStrategy ..|> IFunctionStrategy
+MaxStrategy ..|> IFunctionStrategy
+CountStrategy ..|> IFunctionStrategy
+IfStrategy ..|> IFunctionStrategy
+RoundStrategy ..|> IFunctionStrategy
+LookupStrategy ..|> IFunctionStrategy
+FunctionFactory "1" o-up- "0..*" IFunctionStrategy
+
+FunctionFactory -[hidden]down- IFunctionStrategy
+IFunctionStrategy -[hidden]right- FunctionHelpers
+SumStrategy -[hidden]right- AverageStrategy
+AverageStrategy -[hidden]right- MinStrategy
+MinStrategy -[hidden]right- MaxStrategy
+MaxStrategy -[hidden]right- CountStrategy
+CountStrategy -[hidden]right- IfStrategy
+IfStrategy -[hidden]right- RoundStrategy
+RoundStrategy -[hidden]right- LookupStrategy
+
+
+@enduml

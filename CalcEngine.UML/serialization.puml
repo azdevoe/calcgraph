@@ -1,0 +1,36 @@
+@startuml Serialization
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 85
+skinparam ranksep 85
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+top to bottom direction
+
+title CalcEngine.Core.Serialization — JSON Persistence
+
+class Workbook <<from Model>>
+class CalculationEngine <<from Engine>>
+
+class WorkbookSerializer <<static>> {
+    - {static} JsonOptions : JsonSerializerOptions
+    + {static} SaveToJSON(workbook, filePath)
+    + {static} LoadFromJSON(engine, filePath)
+}
+
+class CellDTO <<DTO>> {
+    + Reference : string
+    + Input : string
+    + CellDTO()
+    + CellDTO(reference, input)
+}
+
+Workbook -[hidden]right- WorkbookSerializer
+WorkbookSerializer -[hidden]right- CalculationEngine
+WorkbookSerializer -[hidden]down- CellDTO
+
+WorkbookSerializer ..left.> Workbook : reads
+WorkbookSerializer ..right.> CalculationEngine : clears / loads
+WorkbookSerializer ..down.> "0..*" CellDTO : serializes
+
+@enduml

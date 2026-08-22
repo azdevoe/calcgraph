@@ -1,0 +1,122 @@
+@startuml Expressions
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 85
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+skinparam packageStyle rectangle
+top to bottom direction
+
+title CalcEngine.Core.Expressions — Composite + Visitor
+
+interface IExpression {
+    + Evaluate(context : IEvalContext) : CellValue
+    + Accept<T>(visitor : IExpressionVisitor<T>) : T
+}
+
+interface "IExpressionVisitor<T>" as IExpressionVisitor {
+    + VisitNumber(expr) : T
+    + VisitText(expr) : T
+    + VisitBoolean(expr) : T
+    + VisitCellRef(expr) : T
+    + VisitRange(expr) : T
+    + VisitUnary(expr) : T
+    + VisitBinary(expr) : T
+    + VisitFunction(expr) : T
+}
+
+package "Leaf nodes" {
+    class NumberExpression { 
+        + Value : double 
+    }
+    class TextExpression { 
+        + Value : string 
+    }
+    class BooleanExpression { 
+        + Value : bool 
+    }
+    class CellRefExpression { 
+        + Ref : CellRef 
+    }
+    class RangeExpression { 
+        + Range : CellRange 
+    }
+
+    NumberExpression -[hidden]right- TextExpression
+    TextExpression -[hidden]right- BooleanExpression
+    BooleanExpression -[hidden]right- CellRefExpression
+    CellRefExpression -[hidden]right- RangeExpression
+}
+
+package "Branch nodes" {
+    class UnaryExpression {
+        + Op : string
+        + Operand : IExpression
+    }
+    class BinaryExpression {
+        + Left : IExpression
+        + Op : BinaryOperator
+        + Right : IExpression
+    }
+    enum BinaryOperator {
+        Add
+        Subtract
+        Multiply
+        Divide
+        Power
+        Equal
+        NotEqual
+        LessThan
+        LessOrEqual
+        GreaterThan
+        GreaterOrEqual
+    }
+    class FunctionExpression {
+        + Name : string
+        + Args : IReadOnlyList<IExpression>
+    }
+
+    UnaryExpression -[hidden]right- BinaryExpression
+    BinaryExpression -[hidden]right- BinaryOperator
+    BinaryOperator -[hidden]right- FunctionExpression
+}
+
+package "Visitor implementations" {
+    class FormulaPrinter << IExpressionVisitor<string> >> {
+        + {static} Print(expr) : string
+    }
+    class ReferenceTranslationVisitor << IExpressionVisitor<IExpression> >> {
+        + {static} Translate(expr, deltaRow, deltaColumn) : IExpression
+    }
+    class DependencyVisitor <<from Dependencies>> {
+        + {static} GetDependencies(expr) : IReadOnlyList<CellRef>
+    }
+
+    FormulaPrinter -[hidden]right- ReferenceTranslationVisitor
+    ReferenceTranslationVisitor -[hidden]right- DependencyVisitor
+}
+
+NumberExpression ..|> IExpression
+TextExpression ..|> IExpression
+BooleanExpression ..|> IExpression
+CellRefExpression ..|> IExpression
+RangeExpression ..|> IExpression
+UnaryExpression ..|> IExpression
+BinaryExpression ..|> IExpression
+FunctionExpression ..|> IExpression
+
+UnaryExpression --> IExpression : Operand
+BinaryExpression --> IExpression : Left / Right
+BinaryExpression --> BinaryOperator : Op
+FunctionExpression --> "0..*" IExpression : Args
+
+FormulaPrinter ..|> IExpressionVisitor
+ReferenceTranslationVisitor ..|> IExpressionVisitor
+DependencyVisitor ..|> IExpressionVisitor
+
+IExpression -[hidden]right- IExpressionVisitor
+RangeExpression -[hidden]right- UnaryExpression
+FunctionExpression -[hidden]right- FormulaPrinter
+
+@enduml

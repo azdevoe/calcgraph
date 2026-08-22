@@ -1,0 +1,44 @@
+@startuml Dependencies
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 90
+skinparam ranksep 75
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+left to right direction
+
+title CalcEngine.Core.Dependencies
+
+interface "IExpressionVisitor<IReadOnlyList<CellRef>>" as DependencyVisitorContract <<from Expressions>>
+
+class DependencyVisitor {
+    + {static} GetDependencies(expr) : IReadOnlyList<CellRef>
+    + VisitNumber(expr) : IReadOnlyList<CellRef>
+    + VisitText(expr) : IReadOnlyList<CellRef>
+    + VisitBoolean(expr) : IReadOnlyList<CellRef>
+    + VisitCellRef(expr) : IReadOnlyList<CellRef>
+    + VisitRange(expr) : IReadOnlyList<CellRef>
+    + VisitUnary(expr) : IReadOnlyList<CellRef>
+    + VisitBinary(expr) : IReadOnlyList<CellRef>
+    + VisitFunction(expr) : IReadOnlyList<CellRef>
+}
+
+class DependencyGraph {
+    - precedents : Dictionary<CellRef, HashSet<CellRef>>
+    - dependents : Dictionary<CellRef, HashSet<CellRef>>
+    + PrecedentsOf(cell) : IReadOnlyCollection<CellRef>
+    + DependentsOf(cell) : IReadOnlyCollection<CellRef>
+    + SetDependencies(cell, dependsOn) : IReadOnlyList<CellRef>?
+    + HasCycle() : bool
+    + FindCycle(start) : IReadOnlyList<CellRef>?
+    + GetAffectedCells(cell) : IReadOnlyList<CellRef>
+    + TopologicalSort(cells) : IReadOnlyList<CellRef>
+    - Walk(source, visited, path) : IReadOnlyList<CellRef>?
+    - AddEdge(from, to)
+    - RemoveIncomingEdges(cell)
+}
+
+DependencyVisitor ..|> DependencyVisitorContract
+DependencyVisitor -[hidden]right- DependencyGraph
+
+@enduml

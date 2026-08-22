@@ -1,0 +1,66 @@
+@startuml GUI
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+top to bottom direction
+
+title CalcEngine.Gui — WinForms Demonstration Client
+
+class Program <<static>> {
+    - {static} Main()
+}
+
+class Form1 <<Form>> {
+    - _engine : CalculationEngine
+    - _grid : DataGridView
+    - _formulaBar : TextBox
+    - _statusLabel : Label
+    - _activeFilterRange : CellRange?
+    + OnCellsChanged(changeSet)
+    + OnCircularReference(cyclePath)
+    - OnCellBeginEdit(sender, event)
+    - OnCellEndEdit(sender, event)
+    - TryUndo()
+    - TryRedo()
+    - ShowSortDialog()
+    - ShowFilterDialog()
+    - RefreshFilterVisibility()
+}
+
+interface ICellObserver <<from ChangeTracking>>
+class CalculationEngine <<from Engine>>
+
+class RangeRuleDialog <<Form>> {
+    + Min : double
+    + Max : double
+}
+
+class SortRangeDialog <<Form>> {
+    + SelectedColumn : int
+    + Ascending : bool
+    + HasHeader : bool
+}
+
+class FilterRangeDialog <<Form>> {
+    + SelectedColumn : int
+    + Filter : IRowFilter?
+}
+
+Program ..> Form1 : starts
+Form1 ..|> ICellObserver
+Form1 *-- CalculationEngine
+Form1 ..> RangeRuleDialog : opens
+Form1 ..> SortRangeDialog : opens
+Form1 ..> FilterRangeDialog : opens
+
+ICellObserver -[hidden]right- Form1
+Form1 -[hidden]right- CalculationEngine
+Program -[hidden]down- Form1
+RangeRuleDialog -[hidden]right- SortRangeDialog
+SortRangeDialog -[hidden]right- FilterRangeDialog
+Form1 -[hidden]down- SortRangeDialog
+
+@enduml

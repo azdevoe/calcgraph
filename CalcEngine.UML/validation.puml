@@ -1,0 +1,65 @@
+@startuml Validation
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 75
+skinparam ranksep 80
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+top to bottom direction
+
+title CalcEngine.Core.Validation
+
+class ValidationRegistry {
+    - _rules : Dictionary<CellRef, IValidationRule>
+    + SetRule(cellRef, rule)
+    + ClearRule(cellRef)
+    + GetRule(cellRef) : IValidationRule?
+}
+
+interface IValidationRule {
+    + Validate(value : CellValue, context : IEvalContext) : ValidationResult
+}
+
+class ValidationResult {
+    + Success : bool
+    + ErrorMessage : string?
+    + {static} Ok() : ValidationResult
+    + {static} Fail(message) : ValidationResult
+}
+
+class RangeRule {
+    + Min : double
+    + Max : double
+    + Validate(value, context) : ValidationResult
+}
+
+class ListRule {
+    + AllowedValues : IReadOnlyList<string>
+    + Validate(value, context) : ValidationResult
+}
+
+class TypeRule {
+    + ExpectedKind : ValueKind
+    + Validate(value, context) : ValidationResult
+}
+
+class CustomFormulaRule {
+    + Formula : IExpression
+    + Validate(value, context) : ValidationResult
+}
+
+RangeRule ..|> IValidationRule
+ListRule ..|> IValidationRule
+TypeRule ..|> IValidationRule
+CustomFormulaRule ..|> IValidationRule
+ValidationRegistry "1" o-- "0..*" IValidationRule
+IValidationRule ..> ValidationResult : returns
+
+ValidationRegistry -[hidden]right- IValidationRule
+IValidationRule -[hidden]right- ValidationResult
+RangeRule -[hidden]right- ListRule
+ListRule -[hidden]right- TypeRule
+TypeRule -[hidden]right- CustomFormulaRule
+IValidationRule -[hidden]down- ListRule
+
+@enduml
