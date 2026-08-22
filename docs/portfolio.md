@@ -139,93 +139,11 @@ valid reference (§7.1), escape as a .NET exception; both come back as
 ## 3. Class diagrams
 
 ### 3.1 Parsing
-
-```mermaid
-classDiagram
-    class FormulaInputParser {
-        +Parse(rawInput) FormulaParseResult
-    }
-    class ExpressionTreeBuilder {
-        <<FormulaBaseVisitor~IExpression~>>
-        +VisitFormulaEntry(ctx) IExpression
-        +VisitComparison(ctx) IExpression
-        +VisitCellRefAtom(ctx) IExpression
-        +VisitFunctionCall(ctx) IExpression
-    }
-    class ErrorCollector {
-        <<IAntlrErrorListener>>
-        +Errors IReadOnlyList~string~
-        +HasErrors bool
-        +SyntaxError(...)
-    }
-    class FormulaParseResult {
-        +Success bool
-        +Tree IExpression
-        +IsFormula bool
-        +Errors IReadOnlyList~string~
-        +Ok(tree, isFormula)$ FormulaParseResult
-        +Failure(errors)$ FormulaParseResult
-    }
-    FormulaInputParser --> ErrorCollector : wires into lexer+parser
-    FormulaInputParser --> ExpressionTreeBuilder : Visit(parseTree)
-    FormulaInputParser --> FormulaParseResult : returns
-    ExpressionTreeBuilder ..> IExpression : builds
-```
+![parsing.png](uml-diagrams/parsing.png)
 
 ### 3.2 Expression tree (Composite + Interpreter)
 
-```mermaid
-classDiagram
-    class IExpression {
-        <<interface>>
-        +Evaluate(context) CellValue
-        +Accept~T~(visitor) T
-    }
-    class NumberExpression
-    class TextExpression
-    class BooleanExpression
-    class CellRefExpression
-    class RangeExpression
-    class UnaryExpression
-    class BinaryExpression
-    class FunctionExpression
-
-    IExpression <|.. NumberExpression
-    IExpression <|.. TextExpression
-    IExpression <|.. BooleanExpression
-    IExpression <|.. CellRefExpression
-    IExpression <|.. RangeExpression
-    IExpression <|.. UnaryExpression
-    IExpression <|.. BinaryExpression
-    IExpression <|.. FunctionExpression
-    UnaryExpression --> IExpression : Operand
-    BinaryExpression --> IExpression : Left, Right
-    FunctionExpression --> "*" IExpression : Args
-
-    class IExpressionVisitor~T~ {
-        <<interface>>
-        +VisitNumber(e) T
-        +VisitCellRef(e) T
-        +VisitBinary(e) T
-        +VisitFunction(e) T
-    }
-    class DependencyVisitor {
-        <<IExpressionVisitor~IReadOnlyList~CellRef~~>>
-        +GetDependencies(expr)$ IReadOnlyList~CellRef~
-    }
-    class FormulaPrinter {
-        <<IExpressionVisitor~string~>>
-        +Print(expr)$ string
-    }
-    class ReferenceTranslationVisitor {
-        <<IExpressionVisitor~IExpression~>>
-        +Translate(expr, dRow, dCol)$ IExpression
-    }
-    IExpressionVisitor~T~ <|.. DependencyVisitor
-    IExpressionVisitor~T~ <|.. FormulaPrinter
-    IExpressionVisitor~T~ <|.. ReferenceTranslationVisitor
-    IExpression ..> IExpressionVisitor~T~ : Accept dispatches to
-```
+![expression-tree.png](uml-diagrams/expression-tree.png)
 
 Three visitors, three jobs, one tree: `DependencyVisitor` (Pass 1 —
 extract `CellRef`s for the graph), `FormulaPrinter` (serialise back to
@@ -234,266 +152,26 @@ formula text — needed by `SortRangeCommand` and the GUI formula bar),
 `SortRangeCommand`'s Option B move semantics, §6.3).
 
 ### 3.3 Evaluation and functions (Strategy + Factory)
-
-```mermaid
-classDiagram
-    class IEvalContext {
-        <<interface>>
-        +GetCellValue(ref) CellValue
-        +GetRangeValues(range) IReadOnlyList~CellValue~
-        +CallFunction(name, args) CellValue
-    }
-    class Workbook {
-        <<IEvalContext>>
-        -Dictionary~CellRef,Cell~ _cells
-        -FunctionFactory _functions
-        +GetOrCreate(ref) Cell
-        +TryGet(ref) Cell
-        +Remove(ref) bool
-    }
-    class FunctionFactory {
-        -Dictionary~string,IFunctionStrategy~ _strategies
-        +Register(strategy)
-        +Evaluate(name, args, context) CellValue
-        +CreateDefault()$ FunctionFactory
-    }
-    class IFunctionStrategy {
-        <<interface>>
-        +Name string
-        +MinArgs int
-        +MaxArgs int
-        +Evaluate(args, context) CellValue
-    }
-    class SumStrategy
-    class AverageStrategy
-    class MinStrategy
-    class MaxStrategy
-    class CountStrategy
-    class IfStrategy
-    class RoundStrategy
-    class LookupStrategy
-
-    IEvalContext <|.. Workbook
-    Workbook --> FunctionFactory
-    FunctionFactory --> "*" IFunctionStrategy
-    IFunctionStrategy <|.. SumStrategy
-    IFunctionStrategy <|.. AverageStrategy
-    IFunctionStrategy <|.. MinStrategy
-    IFunctionStrategy <|.. MaxStrategy
-    IFunctionStrategy <|.. CountStrategy
-    IFunctionStrategy <|.. IfStrategy
-    IFunctionStrategy <|.. RoundStrategy
-    IFunctionStrategy <|.. LookupStrategy
-```
+![evaluation-functions.png](uml-diagrams/evaluation-functions.png)
 
 `IfStrategy` is the one strategy that does not evaluate every argument
 up front — `Evaluate` receives unevaluated `IExpression` args precisely
 so `IF` can evaluate the condition, then exactly one branch (§5.3).
 
 ### 3.4 Dependency graph
-
-```mermaid
-classDiagram
-    class DependencyGraph {
-        -Dictionary~CellRef,HashSet~CellRef~~ precedents
-        -Dictionary~CellRef,HashSet~CellRef~~ dependents
-        +PrecedentsOf(cell) IReadOnlyCollection~CellRef~
-        +DependentsOf(cell) IReadOnlyCollection~CellRef~
-        +SetDependencies(cell, dependsOn) IReadOnlyList~CellRef~
-        +FindCycle(start) IReadOnlyList~CellRef~
-        +GetAffectedCells(cell) IReadOnlyList~CellRef~
-        +TopologicalSort(cells) IReadOnlyList~CellRef~
-    }
-    class CellRef {
-        <<readonly record struct>>
-        +Row int
-        +Column int
-        +Parse(s)$ CellRef
-        +ToA1() string
-    }
-    class CellRange {
-        <<readonly record struct>>
-        +TopLeft CellRef
-        +BottomRight CellRef
-        +GetCells() IEnumerable~CellRef~
-    }
-    DependencyGraph --> "*" CellRef
-    CellRange --> "2" CellRef
-```
+![dependency-graph.png](uml-diagrams/dependency-graph.png)
 
 ### 3.5 Commands (undo/redo)
-
-```mermaid
-classDiagram
-    class ICommand {
-        <<interface>>
-        +Execute() CellChangeSet
-        +Undo() CellChangeSet
-    }
-    class CommandManager {
-        -LinkedList~ICommand~ _undoStack
-        -Stack~ICommand~ _redoStack
-        -const Capacity = 100
-        +CanUndo bool
-        +CanRedo bool
-        +ExecuteCommand(command) CellChangeSet
-        +Undo() CellChangeSet
-        +Redo() CellChangeSet
-    }
-    class SetCellCommand {
-        -string _oldRawInput
-        -string _newRawInput
-    }
-    class ApplyFilterCommand {
-        -IRowFilter _oldFilter
-        -IRowFilter _newFilter
-    }
-    class SortRangeCommand {
-        -Dictionary~CellRef,string~ _before
-        -Dictionary~CellRef,string~ _after
-    }
-    ICommand <|.. SetCellCommand
-    ICommand <|.. ApplyFilterCommand
-    ICommand <|.. SortRangeCommand
-    CommandManager --> "*" ICommand
-```
+![commands(undo-redo).png](uml-diagrams/commands%28undo-redo%29.png)
 
 ### 3.6 Data validation (Group C feature)
-
-```mermaid
-classDiagram
-    class ValidationRegistry {
-        -Dictionary~CellRef,IValidationRule~ _rules
-        +SetRule(cell, rule)
-        +ClearRule(cell)
-        +GetRule(cell) IValidationRule
-    }
-    class IValidationRule {
-        <<interface>>
-        +Validate(value, context) ValidationResult
-    }
-    class RangeRule
-    class ListRule
-    class TypeRule
-    class CustomFormulaRule
-    class ValidationResult {
-        +Success bool
-        +ErrorMessage string
-        +Ok()$ ValidationResult
-        +Fail(msg)$ ValidationResult
-    }
-    ValidationRegistry --> "*" IValidationRule
-    IValidationRule <|.. RangeRule
-    IValidationRule <|.. ListRule
-    IValidationRule <|.. TypeRule
-    IValidationRule <|.. CustomFormulaRule
-    IValidationRule ..> ValidationResult : returns
-    CustomFormulaRule --> IExpression : Formula
-```
+![data-validation.png](uml-diagrams/data-validation.png)
 
 ### 3.7 Sorting and filtering (Group C feature)
-
-```mermaid
-classDiagram
-    class FilterManager {
-        -Dictionary~(CellRange,int),IRowFilter~ _filters
-        +SetFilter(range, col, filter)
-        +ClearFilter(range, col)
-        +GetVisibleRows(range, context) IReadOnlyList~int~
-    }
-    class IRowFilter {
-        <<interface>>
-        +Matches(value) bool
-    }
-    class NumberRangeFilter
-    class TextContainsFilter
-    class NonEmptyFilter
-    FilterManager --> "*" IRowFilter
-    IRowFilter <|.. NumberRangeFilter
-    IRowFilter <|.. TextContainsFilter
-    IRowFilter <|.. NonEmptyFilter
-
-    class RangeSorter {
-        <<static>>
-        +ComputeOrder(dataRows, keys, valueAt)$ IReadOnlyList~int~
-    }
-    class SortKey {
-        +Column int
-        +Comparer ISortComparer
-    }
-    class ISortComparer {
-        <<interface>>
-        +Compare(a, b) int
-    }
-    class AscendingComparer
-    class DescendingComparer
-    RangeSorter --> "*" SortKey
-    SortKey --> ISortComparer
-    ISortComparer <|.. AscendingComparer
-    ISortComparer <|.. DescendingComparer
-```
+![sorting -filtering.png](uml-diagrams/sorting%20-filtering.png)
 
 ### 3.8 Engine facade
-
-```mermaid
-classDiagram
-    class CalculationEngine {
-        -Workbook _workbook
-        -DependencyGraph _graph
-        -FormulaInputParser _parser
-        -ChangeNotifier _notifier
-        -CommandManager _commandManager
-        -ValidationRegistry _validationRegistry
-        -FilterManager _filterManager
-        +SetCellContent(ref, rawInput) CellChangeSet
-        +ClearCell(ref) CellChangeSet
-        +GetValue(ref) CellValue
-        +GetFormula(ref) string
-        +Undo() CellChangeSet
-        +Redo() CellChangeSet
-        +SetValidationRule(ref, rule)
-        +SortRange(range, keys, hasHeader) CellChangeSet
-        +SetFilter(range, col, filter) CellChangeSet
-        +GetVisibleRows(range) IReadOnlyList~int~
-        +BeginBatch()
-        +EndBatch() CellChangeSet
-        +RecalculateAll()
-        +Subscribe(observer)
-    }
-    class Cell {
-        +Ref CellRef
-        +RawInput string
-        +Value CellValue
-        +Tree IExpression
-        +IsFormula bool
-    }
-    class CellChangeSet {
-        +Edited CellRef
-        +Success bool
-        +ChangedCells IReadOnlyList~CellRef~
-        +FailureReason ChangeFailureReason
-    }
-    class ChangeNotifier {
-        -HashSet~ICellObserver~ _observers
-        +Subscribe(observer)
-        +NotifyChanged(changeSet)
-        +NotifyCircularReference(path)
-    }
-    class ICellObserver {
-        <<interface>>
-        +OnCellsChanged(changeSet)
-        +OnCircularReference(path)
-    }
-    CalculationEngine --> Workbook
-    CalculationEngine --> DependencyGraph
-    CalculationEngine --> CommandManager
-    CalculationEngine --> ValidationRegistry
-    CalculationEngine --> FilterManager
-    CalculationEngine --> ChangeNotifier
-    Workbook --> "*" Cell
-    ChangeNotifier --> "*" ICellObserver
-    CalculationEngine ..> CellChangeSet : returns
-```
+![engine-facade.png](uml-diagrams/engine-facade.png)
 
 ---
 

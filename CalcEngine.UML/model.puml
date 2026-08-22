@@ -1,0 +1,114 @@
+@startuml Model
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 80
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+skinparam packageStyle rectangle
+top to bottom direction
+hide empty methods
+
+title CalcEngine.Core.Model
+
+interface IEvalContext {
+    + GetCellValue(cellRef) : CellValue
+    + GetRangeValues(range) : IReadOnlyList<CellValue>
+    + CallFunction(name, args) : CellValue
+}
+
+class FunctionFactory <<from Functions>>
+
+class Workbook {
+    - _cells : Dictionary<CellRef, Cell>
+    - _functions : FunctionFactory
+    + Count : int
+    + GetOrCreate(cellRef) : Cell
+    + TryGet(cellRef) : Cell?
+    + Remove(cellRef) : bool
+    + AllCells() : IReadOnlyCollection<Cell>
+    + GetCellValue(cellRef) : CellValue
+    + GetRangeValues(range) : IReadOnlyList<CellValue>
+    + CallFunction(name, args) : CellValue
+}
+
+class Cell {
+    + Ref : CellRef
+    + RawInput : string
+    + Value : CellValue
+    + Tree : IExpression?
+    + IsFormula : bool
+    + SetLiteral(rawInput, value)
+    + SetFormula(rawInput, tree)
+    + SetValue(value)
+    + Clear()
+}
+
+struct CellRange <<record struct>> {
+    + TopLeft : CellRef
+    + BottomRight : CellRef
+    + CellCount : int
+    + {static} Parse(text) : CellRange
+    + GetCells() : IEnumerable<CellRef>
+    + ToString() : string
+}
+
+struct CellRef <<record struct>> {
+    + Row : int
+    + Column : int
+    + {static} Parse(text) : CellRef
+    + ToA1() : string
+    + ToString() : string
+}
+
+struct CellValue <<record struct>> {
+    + Kind : ValueKind
+    + Number : double
+    + Text : string?
+    + Error : ErrorKind
+    + Boolean : bool
+    + IsError : bool
+    + {static} Empty : CellValue
+    + {static} FromNumber(value) : CellValue
+    + {static} FromText(value) : CellValue
+    + {static} FromBoolean(value) : CellValue
+    + {static} FromError(error) : CellValue
+    + AsNumber() : double
+    + AsText() : string
+}
+
+enum ValueKind {
+    Empty
+    Number
+    Text
+    Boolean
+    Error
+}
+
+enum ErrorKind {
+    None
+    DivideByZero
+    Value
+    Reference
+    Name
+    Circular
+    NotAvailable
+}
+
+Workbook ..|> IEvalContext
+Workbook "1" *-down- "0..*" Cell
+Workbook "1" o-right- "1" FunctionFactory
+Cell --> CellRef : Ref
+Cell --> CellValue : Value
+CellRange --> CellRef : corners
+CellValue --> ValueKind : Kind
+CellValue --> ErrorKind : Error
+
+IEvalContext -[hidden]down- Workbook
+Workbook -[hidden]down- Cell
+CellRange -[hidden]right- CellRef
+CellRef -[hidden]right- CellValue
+CellValue -[hidden]down- ValueKind
+ValueKind -[hidden]right- ErrorKind
+
+@enduml

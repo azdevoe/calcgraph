@@ -1,0 +1,56 @@
+@startuml Sorting
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 80
+skinparam ranksep 80
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+top to bottom direction
+
+title CalcEngine.Core.Sorting
+
+interface ISortComparer {
+    + Compare(left : CellValue, right : CellValue) : int
+}
+
+class AscendingComparer
+class DescendingComparer
+
+class CellValueOrdering <<static, internal>> {
+    + {static} CompareAscending(left, right) : int
+}
+
+class SortKey {
+    + Column : int
+    + Comparer : ISortComparer
+}
+
+class RangeSorter <<static>> {
+    + {static} ComputeOrder(dataRows, keys, valueAt) : IReadOnlyList<int>
+}
+
+class SortRangeCommand <<ICommand>> {
+    - _engine : CalculationEngine
+    - _range : CellRange
+    - _keys : IReadOnlyList<SortKey>
+    - _hasHeader : bool
+    + Execute() : CellChangeSet
+    + Undo() : CellChangeSet
+}
+
+AscendingComparer ..|> ISortComparer
+DescendingComparer ..|> ISortComparer
+SortKey -left-> ISortComparer : Comparer
+AscendingComparer ..> CellValueOrdering
+DescendingComparer ..> CellValueOrdering
+RangeSorter ..> SortKey
+SortRangeCommand --> RangeSorter
+
+ISortComparer -[hidden]right- SortKey
+AscendingComparer -[hidden]right- DescendingComparer
+ISortComparer -[hidden]right- RangeSorter
+AscendingComparer -[hidden]down- CellValueOrdering
+SortKey -[hidden]down- RangeSorter
+RangeSorter -[hidden]down- SortRangeCommand
+
+@enduml

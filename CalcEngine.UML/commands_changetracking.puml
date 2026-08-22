@@ -1,0 +1,102 @@
+@startuml CommandsAndChangeTracking
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 70
+skinparam ranksep 75
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+skinparam packageStyle rectangle
+top to bottom direction
+
+title CalcEngine.Core — Commands + Change Tracking
+
+package Commands {
+    interface ICommand {
+        + Execute() : CellChangeSet
+        + Undo() : CellChangeSet
+    }
+
+    class CommandManager {
+        - {static} Capacity : int = 100
+        - _undoStack : LinkedList<ICommand>
+        - _redoStack : Stack<ICommand>
+        + CanUndo : bool
+        + CanRedo : bool
+        + ExecuteCommand(command) : CellChangeSet
+        + Undo() : CellChangeSet
+        + Redo() : CellChangeSet
+        + Clear()
+    }
+
+    class SetCellCommand {
+        - _engine : CalculationEngine
+        - _cellRef : CellRef
+        - _newRawInput : string
+        - _oldRawInput : string
+        + Execute() : CellChangeSet
+        + Undo() : CellChangeSet
+    }
+
+    class ApplyFilterCommand {
+        - _filters : FilterManager
+        - _range : CellRange
+        - _column : int
+        - _newFilter : IRowFilter?
+        - _oldFilter : IRowFilter?
+        + Execute() : CellChangeSet
+        + Undo() : CellChangeSet
+    }
+
+    SetCellCommand ..|> ICommand
+    ApplyFilterCommand ..|> ICommand
+    CommandManager "1" o-- "0..*" ICommand : history
+
+    SetCellCommand -[hidden]right- ApplyFilterCommand
+    ICommand -[hidden]down- CommandManager
+}
+
+package ChangeTracking {
+    interface ICellObserver {
+        + OnCellsChanged(changeSet)
+        + OnCircularReference(cyclePath)
+    }
+
+    class ChangeNotifier {
+        - _observers : HashSet<ICellObserver>
+        + Subscribe(observer)
+        + Unsubscribe(observer)
+        + NotifyChanged(changeSet)
+        + NotifyCircularReference(cyclePath)
+    }
+
+    class CellChangeSet {
+        + Edited : CellRef
+        + Success : bool
+        + ChangedCells : IReadOnlyList<CellRef>
+        + ErrorMessage : string?
+        + CircularPath : IReadOnlyList<CellRef>?
+        + FailureReason : ChangeFailureReason
+        + {static} Ok(edited, changedCells)
+        + {static} ParseFailure(edited, message)
+        + {static} Circular(edited, cyclePath)
+        + {static} ValidationFailed(edited, message)
+    }
+
+    enum ChangeFailureReason {
+        None
+        ParseError
+        Circular
+        ValidationError
+    }
+
+    ChangeNotifier "1" o-- "0..*" ICellObserver
+    CellChangeSet --> ChangeFailureReason
+
+    ICellObserver -[hidden]right- CellChangeSet
+    ChangeNotifier -[hidden]right- ChangeFailureReason
+}
+
+ICommand ..> CellChangeSet : returns
+Commands -[hidden]right- ChangeTracking
+
+@enduml

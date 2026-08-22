@@ -14,17 +14,17 @@ alone is not enough to earn the marks this log is graded on.
 
 ## Summary
 
-| # | Date | Member | Tool | Summary |
-|---|---|---|---|---|
-| 1 | 2026-08-21 | Sherif | Claude (Sonnet 5, Claude Code) | Implemented Sorting & Filtering (Group C feature) end to end |
-| 2 | 2026-08-21 | Sherif | Claude (Sonnet 5, Claude Code) | Self-review of the sort/filter implementation found and fixed two real bugs |
-| 3 | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Wired Sort/Filter into the GUI; flagged an undo/redo desync it introduced |
-| 4 | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Built the benchmark harness; first version's numbers were caught as meaningless |
-| 5 | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Design portfolio ADT specs — a copied invariant claim was checked and found false |
-| 6 | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Design portfolio semantics table — surfaced an unhandled-exception bug (`=A0+1`) |
-| 7 | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | ADT specs for `DependencyGraph`/`CommandManager` accepted as generated |
-| 8 | 2026-07-17 | William | Claude | Clarified the project structure regarding whether the deliverable is an API vs. a GUI, and if they should live in separate repos. Claude explained the engine is a headless C# library consumed by a separate GUI project. The team decided to use a single solution containing both projects to avoid fragmenting the Git history required by the rubric. |
-| 9 | 2026-07-17/18 | William | Claude | Requested a rough timeline and a strategy to split the 5 required modules across a 5-person team. Claude provided a week-by-week timeline and a primary-ownership-plus-rotation structure. The team used this output purely for reference and did not formally follow it. |
+| #  | Date | Member | Tool | Summary |
+|----|---|---|---|---|
+| 1  | 2026-08-21 | Sherif | Claude (Sonnet 5, Claude Code) | Implemented Sorting & Filtering (Group C feature) end to end |
+| 2  | 2026-08-21 | Sherif | Claude (Sonnet 5, Claude Code) | Self-review of the sort/filter implementation found and fixed two real bugs |
+| 3  | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Wired Sort/Filter into the GUI; flagged an undo/redo desync it introduced |
+| 4  | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Built the benchmark harness; first version's numbers were caught as meaningless |
+| 5  | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Design portfolio ADT specs — a copied invariant claim was checked and found false |
+| 6  | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | Design portfolio semantics table — surfaced an unhandled-exception bug (`=A0+1`) |
+| 7  | 2026-08-22 | Sherif | Claude (Sonnet 5, Claude Code) | ADT specs for `DependencyGraph`/`CommandManager` accepted as generated |
+| 8  | 2026-07-17 | William | Claude | Clarified the project structure regarding whether the deliverable is an API vs. a GUI, and if they should live in separate repos. Claude explained the engine is a headless C# library consumed by a separate GUI project. The team decided to use a single solution containing both projects to avoid fragmenting the Git history required by the rubric. |
+| 9  | 2026-07-17/18 | William | Claude | Requested a rough timeline and a strategy to split the 5 required modules across a 5-person team. Claude provided a week-by-week timeline and a primary-ownership-plus-rotation structure. The team used this output purely for reference and did not formally follow it. |
 | 10 | 2026-07-18 | William | Claude | Requested a draft ANTLR grammar (`Formula.g4`) for the formula language covering numbers, text, references, operators, and the 8 required functions. Claude provided a complete left-recursive grammar. The team used it only for conceptual understanding and independently implemented a custom grammar with better operation precedence and unary/atom non-terminals. |
 | 11 | 2026-07-18 | William | Claude | Asked how to wire the ANTLR grammar into a Visual Studio C# project. Claude provided step-by-step setup instructions using `Antlr4.Runtime.Standard` and `Antlr4BuildTasks`, alongside a draft xUnit test. The team adopted the build-time generation setup but decided to use MSTest instead of xUnit. |
 | 12 | 2026-07-18/19 | William | Claude | Attempted to debug ANTLR token recognition errors where specific literals silently failed. Claude incorrectly diagnosed the issue as smart/curly quotes replacing ASCII quotes. The team independently discovered the true root cause was a syntax misunderstanding after the AI sent them in circles. |
@@ -62,6 +62,11 @@ alone is not enough to earn the marks this log is graded on.
 | 44 | 2026-08-22 | Peter | Gemini | Created WorkbookSerializerTests in xUnit and configured UnsafeRelaxedJsonEscaping in JsonSerializerOptions to prevent arithmetic operators (+) in formulas from HTML-escaping during serialization.
 | 45 | 2026-08-22 | Peter | Gemini | Fixed null deserialization bindings in CellDTO record by adding [property: JsonPropertyName] attributes and enabling PropertyNameCaseInsensitive for System.Text.Json primary constructor reflection.
 | 46 | 2026-08-22 | Peter | Gemini | Diagnosed background testhost.exe assembly locks holding stale DLLs in memory, terminating test runner processes and forcing a non-incremental rebuild to reach 440/440 passing tests.
+ 47 | 2026-08-22 | Kamal | Zed Agent (GPT-5.6 Sol) | Wrote a specification for `VisitPower`; the user rejected the Requires/Postcondition style and the direct file edit |
+| 48 | 2026-08-22 | Kamal | Zed Agent (GPT-5.6 Sol) | Reviewed a hand-written `ParseNumber` specification; the user rejected a revision for leaking implementation detail |
+| 49 | 2026-08-22 | Kamal | Zed Agent (GPT-5.6 Sol) | Regenerated all CalcEngine.UML class diagrams after the prior `.puml` files were gone; the render pass surfaced unresolved syntax errors |
+| 50 | 2026-08-22 | Kamal | Gemini | Diagnosed and attempted a fix for the `expressions.puml` syntax error via Gemini; one of two explanations flagged as unverified |
+| 51 | 2026-08-22 | Kamal | Gemini | Converted the portfolio's eight Mermaid class diagrams to PlantUML via Gemini; rejected as stale against the current source |
 ---
 
 ## 1 — Sorting & Filtering implementation
@@ -410,3 +415,200 @@ Why: the first two are the ordinary cost of wiring a UI to underlying state — 
 **Why:** Diagnosing background assembly locking prevented chasing phantom code bugs in valid C# logic when the underlying issue was a stale DLL locked on disk by the xUnit runner.
 
 ---
+
+## 47 — `VisitPower` specification style corrected after rejection
+
+**Asked for:** a specification comment for the newly added
+`ExpressionTreeBuilder.VisitPower` method (built from the grammar's new
+`power` production, `power : atom ('^' unary)?`), "using the format used
+in the project."
+
+**Got:** the assistant read `ExpressionTreeBuilder.cs` and the design
+portfolio's ADT-specification style (§4, written in explicit
+**pre**/**post**condition prose), and applied that formal style directly
+to the method as an XML `<remarks>` block with `<b>Precondition:</b>`/
+`<b>Postcondition:</b>` paragraphs, then used a direct file edit to write
+it into `ExpressionTreeBuilder.cs`.
+
+**User rejection:** the user rejected both the style and the action:
+"you should use xml comments as a way to write it, not requires,
+effects and modifies as the specification pattern is not coherent with
+the other modules," and, separately, after a follow-up edit failed to
+match the file's current text, said "don't write to the buffer, just
+give me a specification in that format" rejecting the direct-edit
+workflow itself, not only the wording.
+
+**Changed:** discarded the Requires/Postcondition remarks block.
+Rewrote the documentation using the same plain `<summary>`/`<param>`/
+`<returns>` shape already used by the neighbouring `VisitUnary` method
+(which the user supplied as the reference example), and returned it as
+text in the conversation rather than applying it to the file.
+
+**Why:** the portfolio's formal pre/postcondition language is reserved
+for the ADT specification document, not scattered through method-level
+XML doc comments — every other visitor method in the file documents
+itself with plain prose, so a differently structured comment on one
+method would read as inconsistent rather than more rigorous. The second
+rejection was procedural: this was a specification-writing exercise, not
+an authorized code change, so nothing should be written to the file
+until the user has reviewed and accepted the wording.
+ 
+---
+
+## 48 — `ParseNumber` specification refined after rejection
+
+**Asked for:** a review of a specification the user had written
+themselves for the private helper `ParseNumber(string): double` — "How's
+this specification for this method."
+
+**Got:** feedback that the draft was serviceable but circular ("Parses a
+number that is written as text into a number") and missing a `<param
+name="text">` entry, plus a suggested rewrite that additionally
+explained *why* the parse is culture-consistent, naming
+`CultureInfo.InvariantCulture` directly in the summary text.
+
+**Changed:** removed the culture reference from the summary and rewrote
+it as "Converts a numeric literal from a formula into its numeric
+value," keeping only the added `<param>` tag as the genuine improvement
+over the user's original draft.
+
+**Why:** a specification should describe observable behaviour only, so
+it stays valid if the implementation changes — if invariant-culture
+parsing were later replaced by a hand-rolled parser, this wording would
+not need to change, whereas the earlier draft would have gone stale.
+This matches the project's own ADT-specification convention (§4 of the
+portfolio), which is written in terms of what an operation guarantees,
+never how it is coded.
+ 
+---
+
+## 49 — UML class diagrams regenerated; two diagrams left unresolved
+
+**Asked for:** a fresh set of `.puml` class diagrams for
+`CalcEngine.UML`, with visible, non-crossing, well-spaced orthogonal
+connectors, after confirming that the diagrams built earlier in this
+project's history no longer existed on disk.
+
+**Got:** since no diagram source could be reused, the assistant
+re-inventoried the current codebase directly — Model, Expressions,
+Parsing, Dependencies, Engine, Commands/ChangeTracking, Serialization,
+Functions, Validation, Sorting, Filtering, and the GUI — rather than
+reconstructing the diagrams from memory of the earlier versions. That
+inventory surfaced API surface added since the diagrams were last
+written: `BinaryOperator.Power` and the grammar's `power` production,
+the new `Serialization` folder (`WorkbookSerializer`, `CellDTO`),
+`CalculationEngine.Workbook` and `CalculationEngine.Clear()`, and
+`CommandManager.Clear()`. Twelve `.puml` files were then written — the
+previous eleven plus a new `serialization.puml` — using orthogonal
+routing, wide `nodesep`/`ranksep`, and hidden layout edges to keep
+connectors in separate lanes, following the approach already validated
+for `expressions.puml` and `parsing.puml` earlier in the project.
+
+**Changed:** created `engine.puml`, `model.puml`, `dependencies.puml`,
+`serialization.puml`, `expressions.puml`, `parsing.puml`,
+`functions.puml`, `commands_changetracking.puml`, `sorting.puml`,
+`filtering.puml`, `validation.puml`, and `gui.puml`. None have been
+confirmed to render cleanly yet; `functions.puml` and `expressions.puml`
+need a follow-up fix before they can be treated as finished.
+
+**Why:** verifying the diagrams against the live source rather than
+trusting the earlier diagram set — which predates `Power`,
+`Serialization`, and both `Clear()` methods — avoids shipping UML that
+misrepresents the current design, the same principle the ADT
+specification work in earlier entries was built on. Logging the render
+failures instead of silently retrying keeps the log honest about the
+diagrams' actual state, consistent with the file's stated purpose of
+recording rejections and unresolved issues, not only successes.
+
+## 50 — `expressions.puml` syntax error diagnosed via Gemini; one of two explanations unverified
+
+**Asked for:** a diagnosis of the `Error line 30` PlantUML syntax
+failure that entry 9 left unresolved, by pasting the full
+`expressions.puml` source into Gemini and asking what was wrong, then
+narrowing the question to "The error is on line 30,"
+**Got:** two candidate causes. The first: the
+`<<IExpressionVisitor<string>>>` and `<<IExpressionVisitor<IExpression>>>`
+stereotypes on `FormulaPrinter` and `ReferenceTranslationVisitor` end in
+three consecutive `>` characters, and Gemini says PlantUML's parser
+closes the stereotype on the first `>>` it finds, leaving a stray `>`
+that breaks the rest of the line. The second: a claim that the file's
+indentation contains invisible non-breaking-space (U+00A0) characters,
+which Gemini says a strict PlantUML parser cannot read as ordinary
+whitespace. Gemini's final "fully corrected" version added a space
+inside every generic stereotype (`<< IExpressionVisitor<string> >>`)
+and expanded every single-line leaf-node class body —
+`class NumberExpression { + Value : double }` and its four siblings —
+onto multiple lines.
+
+**Changed:** nothing has been applied back to
+`CalcEngine.UML/expressions.puml` yet, and the corrected file has not
+been re-rendered to confirm the error is actually gone. The
+stereotype-spacing fix is worth keeping the greedy `>>` match Gemini
+describes is a real, previously-documented PlantUML parsing gotcha, and
+both `FormulaPrinter` and `ReferenceTranslationVisitor` do use exactly
+that pattern. The non-breaking-space explanation is not credible as-is:
+the file was produced by a coding tool writing plain ASCII text
+directly, not pasted in from a word processor or web page, which is the
+usual source of stray NBSP characters, and Gemini had no way to inspect
+the file's actual bytes — it inferred this purely from the symptom. It
+is also not a complete explanation on its own, since `functions.puml`
+failed at the same line number with none of the nested-generic
+stereotypes this diagnosis targets, which the "do it for me" fix does
+not address at all.
+
+**Why:** logging the NBSP claim as unverified rather than folding it
+into the fix silently matches the same standard entries 5 and 6 already
+set for this project ,a plausible-sounding explanation from an AI
+assistant is not evidence on its own, and this project's practice has
+been to re-derive or test a claim before writing it down as fact. Since
+`functions.puml`'s identical line-30 failure is still unexplained by
+either theory, this fix should be treated as a partial, unconfirmed
+lead rather than a resolved bug; the next step is to apply only the
+stereotype-spacing change and re-run the PlantUML render pass entry 9
+stopped at, rather than accepting the whole diagnosis at face value.
+ 
+---
+
+## 51 — Portfolio Mermaid diagrams converted to PlantUML via Gemini; flagged as stale against the current source
+
+**Asked for:** PlantUML equivalents of the eight Mermaid class diagrams
+already committed in `docs/portfolio.md` §3 (Parsing; Expression tree;
+Evaluation and functions; Dependency graph; Commands; Data validation;
+Sorting and filtering; Engine facade), by pasting the Mermaid source
+directly and asking Gemini to "Generate the .puml code equivalent of
+all this."
+
+**Got:** eight separate `@startuml` blocks, one per portfolio
+subsection, produced by mechanically translating Mermaid syntax to
+PlantUML: `~T~` generics became `<T>`, the trailing `$` Mermaid uses for
+static members became `{static}`, and the stereotype-spacing fix from
+entry 10 was applied throughout to avoid the same nested-generic parsing
+issue.
+
+**Changed:** none of the eight blocks were written into `CalcEngine.UML`
+or rendered. They were not adopted as replacements for the twelve
+`.puml` files already authored directly against the source code in
+entry 9, because they are a direct transliteration of the Mermaid
+diagrams' text and those Mermaid diagrams predate the same code
+changes entry 9's inventory found missing from the *old* `.puml` set:
+`BinaryOperator.Power` and the grammar's `power` production, the
+`Serialization` folder (`WorkbookSerializer`, `CellDTO`), and
+`CalculationEngine.Workbook`/`CalculationEngine.Clear()`/
+`CommandManager.Clear()`. None of that appears in these eight diagrams
+either, since Gemini only had the Mermaid text to work from, not the
+codebase.
+
+**Why:** converting a stale diagram into a different notation does not
+make it current the entire point of entry 9 was to stop trusting the
+previous diagrams and re-derive the class model from the live source,
+and adopting these eight blocks in place of that work would silently
+reintroduce the exact staleness problem entry 9 was written to fix.
+They're logged here as a rejected alternative, not a pending file
+change, so a future session isn't tempted to treat "already converted
+to PlantUML" as equivalent to "already verified against the code."
+ 
+
+
+
+
+

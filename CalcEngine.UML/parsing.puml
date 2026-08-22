@@ -1,0 +1,74 @@
+@startuml Parsing
+skinparam classAttributeIconSize 0
+skinparam linetype ortho
+skinparam nodesep 75
+skinparam ranksep 85
+skinparam ArrowColor #34495E
+skinparam ArrowThickness 1.4
+skinparam packageStyle rectangle
+top to bottom direction
+
+title CalcEngine.Core.Parsing — ANTLR Pipeline
+
+package "Public parsing API" as PublicApi {
+    class FormulaInputParser {
+        + Parse(rawInput : string) : FormulaParseResult
+    }
+
+    class FormulaParseResult {
+        + Success : bool
+        + Tree : IExpression?
+        + IsFormula : bool
+        + Errors : IReadOnlyList<string>
+        + {static} Ok(tree, isFormula) : FormulaParseResult
+        + {static} Failure(errors) : FormulaParseResult
+    }
+
+    FormulaInputParser -[hidden]right- FormulaParseResult
+}
+
+package "CalcEngine.Core.Generated\n(from Grammar/Formula.g4)" as Generated {
+    class FormulaLexer <<generated>>
+    class FormulaParser <<generated>>
+    class "FormulaBaseVisitor<IExpression>" as FormulaBaseVisitor <<generated>>
+
+    FormulaLexer -[hidden]right- FormulaParser
+    FormulaParser -[hidden]right- FormulaBaseVisitor
+}
+
+package "Handwritten collaborators" as Collaborators {
+    class ErrorCollector <<ANTLR error listener>> {
+        + Errors : IReadOnlyList<string>
+        + HasErrors : bool
+        + SyntaxError(...)
+    }
+
+    class ExpressionTreeBuilder {
+        + VisitFormulaEntry(context) : IExpression
+        + VisitLiteralEntry(context) : IExpression
+        + VisitComparison(context) : IExpression
+        + VisitAddition(context) : IExpression
+        + VisitMultiply(context) : IExpression
+        + VisitUnary(context) : IExpression
+        + VisitPower(context) : IExpression
+        + VisitFunctionCall(context) : IExpression
+        + VisitLiteral(context) : IExpression
+    }
+
+    ErrorCollector -[hidden]right- ExpressionTreeBuilder
+}
+
+FormulaInputParser ..> FormulaParseResult : returns
+FormulaInputParser ..> FormulaLexer
+FormulaInputParser ..> FormulaParser
+FormulaInputParser ..> ErrorCollector
+FormulaInputParser ..> ExpressionTreeBuilder
+ExpressionTreeBuilder -up-|> FormulaBaseVisitor
+
+PublicApi -[hidden]down- Generated
+Generated -[hidden]down- Collaborators
+FormulaInputParser -[hidden]down- FormulaParser
+FormulaLexer -[hidden]down- ErrorCollector
+FormulaBaseVisitor -[hidden]down- ExpressionTreeBuilder
+
+@enduml
