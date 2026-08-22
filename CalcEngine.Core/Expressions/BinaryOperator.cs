@@ -17,6 +17,7 @@ public enum BinaryOperator
 
     /// <summary>Division, written /. Dividing by zero gives #DIV/0!.</summary>
     Divide,
+    Power,
 
     /// <summary>Equality, written =.</summary>
     Equal,

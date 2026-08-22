@@ -100,7 +100,28 @@ public sealed class ExpressionTreeBuilder : FormulaBaseVisitor<IExpression>
         var op = context.op.Text == "*" ? BinaryOperator.Multiply : BinaryOperator.Divide;
         return new BinaryExpression(left, op, right);
     }
+    
+    /// <summary>
+    /// Builds a power expression such as 2^3, or passes through to the base
+    /// expression when there is no exponent. Powers may be chained, so 2^3^2
+    /// is allowed.
+    /// </summary>
+    /// <param name="context">The parse node for the power expression.</param>
+    /// <returns>
+    /// A power expression, or the expression for the base value when no exponent
+    /// was written.
+    /// </returns>
 
+    public override IExpression VisitPower(FormulaParser.PowerContext context)
+    {
+        var baseExpr = Visit(context.atom());
+        if (context.unary() == null)
+            return baseExpr;
+
+        var exponent = Visit(context.unary());
+        return new BinaryExpression(baseExpr, BinaryOperator.Power, exponent);
+    }
+    
     /// <summary>
     /// Builds a signed expression such as -A1, or passes through to the value
     /// below it when there is no sign. Signs may be stacked, so --A1 is
@@ -113,8 +134,8 @@ public sealed class ExpressionTreeBuilder : FormulaBaseVisitor<IExpression>
     /// </returns>
     public override IExpression VisitUnary(FormulaParser.UnaryContext context)
     {
-        if (context.atom() != null)
-            return Visit(context.atom());
+        if (context.power() != null)
+            return Visit(context.power());
 
         // Recursive form: op unary (allows --A1)
         var operand = Visit(context.unary());
@@ -246,7 +267,11 @@ public sealed class ExpressionTreeBuilder : FormulaBaseVisitor<IExpression>
     }
 
     // ── Helpers ──
-
+   /// <summary>
+   /// Parses a numeric literal using invariant culture.
+   /// </summary>
+   /// <param name="text">The numeric literal to parse.</param>
+   /// <returns>The parsed value as a double.</returns>
     private static double ParseNumber(string text)
         => double.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
 

@@ -27,7 +27,7 @@ public sealed class Cell
     /// <summary>The parsed formula tree, or null if this cell is not a formula.</summary>
     public IExpression? Tree { get; private set; }
 
-    /// <summary>True iff this cell currently holds a formula (Tree is non-null).</summary>
+    /// <summary>True if this cell currently holds a formula (Tree is non-null).</summary>
     public bool IsFormula => Tree is not null;
 
     /// <summary>Initializes a new, empty cell at the given address.</summary>
