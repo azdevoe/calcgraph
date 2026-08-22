@@ -57,9 +57,11 @@ alone is not enough to earn the marks this log is graded on.
 | 39 | 2026-08-31 | Abdulazeez | claude | Cell/Workbook/Observer/CalculationEngine facade + Command pattern; caught a namespace collision, an infinite-recursion risk, and an empty-undo edge case |
 | 40 | 2026-08-31 | Abdulazeez | claude | Data Validation feature; surfaced and fixed a latent CommandManager stack-desync bug it would have exposed |
 | 41 | 2026-08-31 | Abdulazeez | claude | WinForms GUI scaffolded; three real bugs found in testing, one of them a misdiagnosis worth logging on its own |
-| 42 | 2026-08-22 | Peter | Gemini | Evaluated project codebase to identify missing JSON persistence module; implemented WorkbookSerializer (SaveToJSON/LoadFromJSON) and CellDTO positional record; removed BeginBatch() wrapping from LoadFromJSON to ensure immediate synchronous formula evaluation upon loading.
-| 43 | 2026-08-22 | Peter | Gemini | Created WorkbookSerializerTests in xUnit; debugged test failures by configuring UnsafeRelaxedJsonEscaping to preserve raw formula operators (+), adding [property: JsonPropertyName] attributes to CellDTO, and killing locked background testhost.exe processes to force fresh binary compilation (440/440 tests green).
-
+| 42 | 2026-08-22 | Peter | Gemini | Evaluated project codebase to identify missing JSON persistence module; implemented WorkbookSerializer (SaveToJSON/LoadFromJSON) and CellDTO positional record.
+| 43 | 2026-08-22 | Peter | Gemini | Resolved deferred formula evaluation during JSON loading by removing BeginBatch() and EndBatch() wrappers from LoadFromJSON to guarantee immediate synchronous cell state restoration.
+| 44 | 2026-08-22 | Peter | Gemini | Created WorkbookSerializerTests in xUnit and configured UnsafeRelaxedJsonEscaping in JsonSerializerOptions to prevent arithmetic operators (+) in formulas from HTML-escaping during serialization.
+| 45 | 2026-08-22 | Peter | Gemini | Fixed null deserialization bindings in CellDTO record by adding [property: JsonPropertyName] attributes and enabling PropertyNameCaseInsensitive for System.Text.Json primary constructor reflection.
+| 46 | 2026-08-22 | Peter | Gemini | Diagnosed background testhost.exe assembly locks holding stale DLLs in memory, terminating test runner processes and forcing a non-incremental rebuild to reach 440/440 passing tests.
 ---
 
 ## 1 — Sorting & Filtering implementation
@@ -348,3 +350,63 @@ Controls.Add ordering hid the status bar behind the grid.
 header text appeared blank in a way that looked like a DataGridView rendering bug; the actual cause was a stale build, not incorrect code. This misdiagnosis was written up separately in the AI Critique Log rather than just quietly fixed and forgotten.
 
 Why: the first two are the ordinary cost of wiring a UI to underlying state — worth logging as concrete, reproducible bugs with a named cause, not vague "polish." The third is worth logging for a different reason: the first diagnosis (a framework rendering quirk) sounded technically plausible and was wrong, and the actual fix — a rebuild — was far simpler than the theory. It's a reminder to rule out "did the code even rebuild" before reasoning about deeper causes.
+
+**42 — Project gap analysis & WorkbookSerializer design**
+
+**Asked for:** A gap analysis of missing features between the project specification and codebase, followed by the initial architecture and implementation of `WorkbookSerializer` (`SaveToJSON`/`LoadFromJSON`) and its Data Transfer Object (`CellDTO`).
+
+**Got:** Gap analysis identifying the missing JSON persistence module required for saving and restoring workbook state; complete implementation of `WorkbookSerializer` using `System.Text.Json` to extract non-empty cells (`cell.RawInput`) mapped to A1 references (`cell.Ref.ToA1()`), clear state via `engine.Clear()`, and restore contents via `engine.SetCellContent`.
+
+**Changed:** Retained `CellDTO` as an immutable C# positional `record` (`record CellDTO(...)`) rather than mutating it into a traditional class with parameterless constructors and mutable properties.
+
+**Why:** Positional records provide concise, thread-safe, and immutable data transfer without boilerplate setter methods, preserving modern C# design principles.
+
+---
+
+**43 — Synchronous state restoration in LoadFromJSON**
+
+**Asked for:** Debugging engine state restoration during JSON loading where restored formula cells failed to evaluate immediately post-load.
+
+**Got:** Diagnosis showing that `LoadFromJSON` originally wrapped `SetCellContent` calls inside `engine.BeginBatch()` and `engine.EndBatch()`, deferring recalculation and observer updates until batch completion.
+
+**Changed:** Removed `BeginBatch()` and `EndBatch()` wrappers from `LoadFromJSON`, allowing `engine.SetCellContent` to evaluate each cell synchronously as it is restored from JSON.
+
+**Why:** Batching deferred cell state commits, causing post-load formula assertions (`Assert.Equal(...)`) to evaluate against uncommitted state. Synchronous restoration guarantees that every cell formula and dependency edge is immediately computed upon deserialization.
+
+---
+
+**44 — xUnit test creation & JSON formula encoding fix**
+
+**Asked for:** Creation of an xUnit test suite (`WorkbookSerializerTests`) to verify save/load persistence, handling of empty cells, missing file handling, and preservation of raw formula text.
+
+**Got:** Initial test suite, but `SaveToJSON_WritesPopulatedCellsToFile` failed because `System.Text.Json`'s default security encoder escaped mathematical operators (converting `=A1+A2` into `=A1\u002BA2`).
+
+**Changed:** Configured `JsonSerializerOptions` in `WorkbookSerializer` with `JavaScriptEncoder.UnsafeRelaxedJsonEscaping`.
+
+**Why:** Default JSON security rules convert arithmetic characters (`+`, `<`, `>`) into HTML unicode escape sequences, corrupting formula strings when written to disk and causing parser errors when loaded back into the engine.
+
+---
+
+**45 — System.Text.Json record binding fix**
+
+**Asked for:** Fixing `LoadFromJSON` deserialization where `CellDTO` instances were instantiated with `null` values for `Reference` and `Input`, skipping cell restoration entirely.
+
+**Got:** Diagnosis revealing a `System.Text.Json` constructor binding mismatch when reflection attempts to map JSON keys to positional record parameters during deserialization.
+
+**Changed:** Applied explicit positional attributes (`[property: JsonPropertyName("...")]`) to `CellDTO` record parameters and set `PropertyNameCaseInsensitive = true` on `JsonSerializerOptions`.
+
+**Why:** System.Text.Json constructor reflection fails to map JSON property keys to primary constructor parameters on records without explicit property targeting attributes, resulting in silent `null` deserialization.
+
+---
+
+**46 — Process assembly lock & MSBuild test runner cleansing**
+
+**Asked for:** Debugging persistent test failures in `WorkbookSerializerTests` where source code fixes appeared to have no effect when running `dotnet test`.
+
+**Got:** Root-cause diagnosis showing background `testhost.exe` test runner processes held `CalcEngine.Core.dll` locked in memory, preventing `dotnet build` from overwriting binaries in `bin/` and `obj/`.
+
+**Changed:** Terminated background test host processes via PowerShell (`Stop-Process`), purged `bin/` and `obj/` build directories, and executed `dotnet build --no-incremental` to force a clean re-compilation, reaching 440/440 passing tests.
+
+**Why:** Diagnosing background assembly locking prevented chasing phantom code bugs in valid C# logic when the underlying issue was a stale DLL locked on disk by the xUnit runner.
+
+---
