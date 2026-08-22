@@ -3,9 +3,9 @@ using CalcEngine.Core.ChangeTracking;
 namespace CalcEngine.Core.Commands;
 
 /// <summary>
-/// A reversible operation on the spreadsheet engine (Design_Portfolio
-/// 4.9, Fig 9). Every command can execute itself and undo itself,
-/// returning the set of cells affected each time.
+/// A reversible operation on the spreadsheet engine. Every command can
+/// execute itself and undo itself, returning the set of cells affected
+/// each time.
 ///
 /// Commands store the raw input text before and after, not computed
 /// values. Undoing replays the old text through the normal edit path
@@ -15,16 +15,17 @@ namespace CalcEngine.Core.Commands;
 /// </summary>
 public interface ICommand
 {
-    /// <summary>
-    /// Applies this operation to the workbook. Must be called exactly
-    /// once before Undo, and may be called again after an Undo to
-    /// support redo.
-    /// </summary>
+    /// <summary>Carries out this operation.</summary>
+    /// <returns>
+    /// A record of what changed, or of why the operation was refused. When it
+    /// is refused, nothing has changed and the operation may be discarded.
+    /// </returns>
     CellChangeSet Execute();
 
     /// <summary>
-    /// Inverts this operation, restoring the workbook to the state
-    /// before Execute was last called.
+    /// Reverses this operation, putting the workbook back as it was before
+    /// Execute was last called.
     /// </summary>
+    /// <returns>A record of what changed in the course of reversing it.</returns>
     CellChangeSet Undo();
 }

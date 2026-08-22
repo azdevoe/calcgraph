@@ -11,13 +11,24 @@ public sealed class ValidationRegistry
 {
     private readonly Dictionary<CellRef, IValidationRule> _rules = new();
 
-    /// <summary>Attaches rule to cellRef, replacing any rule already there.</summary>
+    /// <summary>
+    /// Puts a rule on a cell, replacing any rule already there. A cell can
+    /// carry only one rule at a time.
+    /// </summary>
+    /// <param name="cellRef">The cell to guard.</param>
+    /// <param name="rule">The rule its values must satisfy.</param>
     public void SetRule(CellRef cellRef, IValidationRule rule) => _rules[cellRef] = rule;
 
-    /// <summary>Removes any rule attached to cellRef. A no-op if none was set.</summary>
+    /// <summary>
+    /// Takes the rule off a cell. Clearing a cell that has no rule makes no
+    /// difference.
+    /// </summary>
+    /// <param name="cellRef">The cell to stop guarding.</param>
     public void ClearRule(CellRef cellRef) => _rules.Remove(cellRef);
 
-    /// <summary>The rule attached to cellRef, or null if none.</summary>
+    /// <summary>Returns the rule on a cell.</summary>
+    /// <param name="cellRef">The cell to ask about.</param>
+    /// <returns>The rule guarding that cell, or null if it has none.</returns>
     public IValidationRule? GetRule(CellRef cellRef) =>
         _rules.TryGetValue(cellRef, out var rule) ? rule : null;
 }

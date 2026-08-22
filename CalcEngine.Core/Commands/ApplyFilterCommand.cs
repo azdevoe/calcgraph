@@ -23,6 +23,14 @@ public sealed class ApplyFilterCommand : ICommand
     private readonly IRowFilter? _newFilter;
     private IRowFilter? _oldFilter;
 
+    /// <summary>Creates a filter change that has not been applied yet.</summary>
+    /// <param name="filters">The set of filters to change.</param>
+    /// <param name="range">The range the filter applies to.</param>
+    /// <param name="column">The column within that range to filter on.</param>
+    /// <param name="newFilter">
+    /// The filter to apply, or null to remove whatever filter is on that
+    /// column.
+    /// </param>
     public ApplyFilterCommand(FilterManager filters, CellRange range, int column, IRowFilter? newFilter)
     {
         _filters = filters;
@@ -31,6 +39,11 @@ public sealed class ApplyFilterCommand : ICommand
         _newFilter = newFilter;
     }
 
+    /// <summary>Applies the filter, replacing any filter already on that column.</summary>
+    /// <returns>
+    /// A successful result reporting no changed cells. Filtering changes only
+    /// which rows are worth showing, never any cell's value or formula.
+    /// </returns>
     public CellChangeSet Execute()
     {
         _oldFilter = _filters.GetFilter(_range, _column);
@@ -38,6 +51,10 @@ public sealed class ApplyFilterCommand : ICommand
         return CellChangeSet.Ok(_range.TopLeft, Array.Empty<CellRef>());
     }
 
+    /// <summary>Puts back whatever filter was on that column before.</summary>
+    /// <returns>
+    /// A successful result reporting no changed cells.
+    /// </returns>
     public CellChangeSet Undo()
     {
         Apply(_oldFilter);

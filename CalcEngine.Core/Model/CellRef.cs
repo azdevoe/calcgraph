@@ -3,6 +3,16 @@ namespace CalcEngine.Core.Model;
 /// <summary>A single cell address. Value type: two ints, no allocation.</summary>
 public readonly record struct CellRef(int Row, int Column)
 {
+    /// <summary>Converts an A1-style address such as "B45" into a CellRef.</summary>
+    /// <param name="s">
+    /// The address to convert: column letters followed by a row number.
+    /// Surrounding whitespace and lower case are accepted.
+    /// </param>
+    /// <returns>The cell address that <paramref name="s"/> represents.</returns>
+    /// <exception cref="FormatException">
+    /// <paramref name="s"/> is empty, has no column letters, has no row number,
+    /// contains an unexpected character, or names row 0. Rows start at 1.
+    /// </exception>
     public static CellRef Parse(string s)
     {
         if (string.IsNullOrWhiteSpace(s))
@@ -35,6 +45,11 @@ public readonly record struct CellRef(int Row, int Column)
         return new CellRef(row, col);
     }
 
+    /// <summary>Returns this address written in A1 notation.</summary>
+    /// <returns>
+    /// The column letters followed by the row number, such as "B45".
+    /// Column 27 is written "AA", not "A0".
+    /// </returns>
     public string ToA1()
     {
         var buf = new Stack<char>();
@@ -48,5 +63,7 @@ public readonly record struct CellRef(int Row, int Column)
         return new string(buf.ToArray()) + Row;
     }
 
+    /// <summary>Returns this address written in A1 notation.</summary>
+    /// <returns>The same text as <see cref="ToA1"/>.</returns>
     public override string ToString() => ToA1();
 }

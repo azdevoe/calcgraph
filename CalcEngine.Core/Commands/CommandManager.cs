@@ -3,7 +3,7 @@ using CalcEngine.Core.ChangeTracking;
 namespace CalcEngine.Core.Commands;
 
 /// <summary>
-/// Bounded undo/redo controller (Design_Portfolio 6.5, Fig 9).
+/// Bounded undo/redo controller.
 ///
 /// <para>
 /// <b>Representation:</b> a bounded <see cref="LinkedList{T}"/> used as
@@ -42,17 +42,24 @@ public sealed class CommandManager
 
     private readonly Stack<ICommand> _redoStack = new();
 
-    /// <summary>True when at least one command can be undone.</summary>
+    /// <summary>Gets a value indicating whether there is anything to undo.</summary>
+    /// <value>true if at least one command can be undone; otherwise, false.</value>
     public bool CanUndo => _undoStack.Count > 0;
 
-    /// <summary>True when at least one undone command can be reapplied.</summary>
+    /// <summary>Gets a value indicating whether there is anything to redo.</summary>
+    /// <value>true if at least one undone command can be reapplied; otherwise, false.</value>
     public bool CanRedo => _redoStack.Count > 0;
 
     /// <summary>
-    /// Executes <paramref name="command"/> and records it so it can be
-    /// undone. If the undo stack already holds 100 commands, the oldest
-    /// one is silently discarded. Clears the redo stack (RI-5).
+    /// Carries out a command and remembers it so that it can be undone
+    /// later.
     /// </summary>
+    /// <param name="command">The command to carry out.</param>
+    /// <returns>
+    /// Whatever the command reports. A command that is refused is not
+    /// remembered, so it can be neither undone nor redone, and anything that
+    /// was waiting to be redone stays available.
+    /// </returns>
     public CellChangeSet ExecuteCommand(ICommand command)
 {
     var result = command.Execute();
@@ -70,10 +77,11 @@ public sealed class CommandManager
 }
 
     /// <summary>
-    /// Undoes the most recent command and moves it to the redo stack.
+    /// Reverses the most recent command, and makes it available to redo.
     /// </summary>
+    /// <returns>A record of what changed in the course of reversing it.</returns>
     /// <exception cref="InvalidOperationException">
-    /// Thrown when <see cref="CanUndo"/> is false.
+    /// There is nothing to undo. Check CanUndo first.
     /// </exception>
     public CellChangeSet Undo()
     {
@@ -90,11 +98,12 @@ public sealed class CommandManager
     }
 
     /// <summary>
-    /// Re-executes the most recently undone command and moves it back
-    /// to the undo stack.
+    /// Carries out the most recently undone command again, and makes it
+    /// available to undo.
     /// </summary>
+    /// <returns>A record of what changed.</returns>
     /// <exception cref="InvalidOperationException">
-    /// Thrown when <see cref="CanRedo"/> is false.
+    /// There is nothing to redo. Check CanRedo first.
     /// </exception>
     public CellChangeSet Redo()
     {

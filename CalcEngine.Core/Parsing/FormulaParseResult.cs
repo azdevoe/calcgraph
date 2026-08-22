@@ -33,9 +33,21 @@ public sealed class FormulaParseResult
         Errors = errors;
     }
 
+    /// <summary>Creates a result describing a successful parse.</summary>
+    /// <param name="tree">The expression tree that was built.</param>
+    /// <param name="isFormula">
+    /// true if the input began with "="; false if it was a plain literal.
+    /// </param>
+    /// <returns>A result whose Success is true and whose Errors is empty.</returns>
     public static FormulaParseResult Ok(IExpression tree, bool isFormula) =>
         new(success: true, tree, isFormula, Array.Empty<string>());
 
+    /// <summary>Creates a result describing a parse that failed.</summary>
+    /// <param name="errors">
+    /// The problems found, in the order they were met, each naming the
+    /// position it occurred at.
+    /// </param>
+    /// <returns>A result whose Success is false and whose Tree is null.</returns>
     public static FormulaParseResult Failure(IReadOnlyList<string> errors) =>
         new(success: false, tree: null, isFormula: false, errors);
 }

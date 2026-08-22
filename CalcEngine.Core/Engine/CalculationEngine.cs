@@ -11,26 +11,19 @@ using CalcEngine.Core.Expressions;
 namespace CalcEngine.Core.Engine;
 
 /// <summary>
-/// The public API surface of the engine (Design_Portfolio 4.1, Fig 2).
-/// Wires Workbook, DependencyGraph, FormulaInputParser, ChangeNotifier,
-/// CommandManager and ValidationRegistry together behind one entry
-/// point — the GUI client calls CalculationEngine and nothing else.
+/// The public face of the engine, and the only type a client needs to
+/// touch. Everything a spreadsheet has to do is reached from here:
+/// entering values and formulas, reading results back, undo and redo,
+/// validation, sorting and filtering.
 ///
-/// Every mutating operation returns a CellChangeSet: a successful
-/// edit, a parse failure, a circular reference, and a validation
-/// rejection all come back as data, never as a thrown exception.
+/// Every operation that changes something returns a CellChangeSet. A
+/// successful edit, a formula that could not be read, a circular
+/// reference, and a value turned away by a validation rule all come back
+/// the same way, as data. A client never has to catch anything.
 ///
-/// Undo/Redo are backed by CommandManager (Design_Portfolio 6.5).
-/// SetCellContent and ClearCell create SetCellCommand objects and route
-/// them through ExecuteCommand so every edit is automatically recorded.
-///
-/// Data validation (Group C feature) is backed by ValidationRegistry:
-/// a cell may have at most one IValidationRule attached. ApplyEdit
-/// checks the EVALUATED VALUE against that rule — after parsing and
-/// the cycle check, before anything is written to the workbook — so a
-/// rejected edit leaves the workbook, the dependency graph, and
-/// observers exactly as they were, same as a parse failure or a
-/// circular reference.
+/// An operation that is refused changes nothing at all: the values, the
+/// recorded dependencies, and the undo history are left exactly as they
+/// were, and nothing is reported to observers.
 /// </summary>
 public sealed class CalculationEngine
 {
@@ -50,34 +43,36 @@ public sealed class CalculationEngine
 
     // ── Public API: editing ────────────────────────────────────────
 
-    /// <summary>
-    /// Parses and applies rawInput to the cell at ref. A formula
-    /// (leading '=') has its dependencies extracted and checked for
-    /// cycles before anything is written; a literal simply replaces
-    /// the cell's content. If a validation rule is attached to the
-    /// cell, the evaluated value must satisfy it or the edit is
-    /// rejected. Either way, every cell that must be recomputed as a
-    /// result is recalculated in one topological pass and observers
-    /// are notified once with the complete set.
+    /// <summary>Puts a value or a formula into a cell.</summary>
+    /// <param name="cellRef">The cell to fill in.</param>
+    /// <param name="rawInput">
+    /// What the user typed. Text beginning with "=" is treated as a formula;
+    /// anything else is a plain value. An empty string empties the cell.
+    /// </param>
+    /// <returns>
+    /// On success, every cell whose value changed, the edited cell included,
+    /// with cells that read others already brought up to date. The edit can
+    /// then be undone.
     ///
-    /// The edit is recorded in the undo stack so it can be reversed —
-    /// but only if it succeeds; a rejected edit never touches undo/redo.
-    /// </summary>
+    /// The edit is refused, and nothing changes, if the text cannot be read,
+    /// if it would make the cell depend on itself, or if the resulting value
+    /// breaks a validation rule set on the cell. The result says which of
+    /// those it was, and a refused edit cannot be undone, since it never
+    /// happened.
+    /// </returns>
     public CellChangeSet SetCellContent(CellRef cellRef, string rawInput)
     {
         var cmd = new SetCellCommand(this, cellRef, rawInput);
         return _commandManager.ExecuteCommand(cmd);
     }
 
-    /// <summary>
-    /// Empties a cell and recomputes everything that depended on it.
-    /// Cells that read the cleared cell now see CellValue.Empty, the
-    /// same as any other never-touched cell.
-    ///
-    /// Implemented as a SetCellCommand that sets the content to "" so
-    /// it participates in undo/redo. The internal ApplyEdit path
-    /// detects the empty string and clears the cell.
-    /// </summary>
+    /// <summary>Empties a cell.</summary>
+    /// <param name="cellRef">The cell to empty. Emptying an empty cell is harmless.</param>
+    /// <returns>
+    /// Every cell whose value changed. Formulas that read the emptied cell
+    /// now see it as blank, exactly as they would a cell nobody ever filled
+    /// in. The clear can be undone.
+    /// </returns>
     public CellChangeSet ClearCell(CellRef cellRef)
     {
         // Capture the current raw input so undo can restore it.
@@ -89,85 +84,148 @@ public sealed class CalculationEngine
 
     // ── Public API: querying ──────────────────────────────────────
 
-    /// <summary>Current value of a cell. Empty for a cell that has never been set.</summary>
+    /// <summary>Returns what a cell currently works out to.</summary>
+    /// <param name="cellRef">The cell to read.</param>
+    /// <returns>
+    /// The cell's value, which for a formula is its latest result. A cell
+    /// that was never filled in reads as empty rather than failing.
+    /// </returns>
     public CellValue GetValue(CellRef cellRef) => _workbook.GetCellValue(cellRef);
 
-    /// <summary>The exact raw text last given to SetCellContent, or "" if never set.</summary>
+    /// <summary>Returns what was typed into a cell, rather than what it works out to.</summary>
+    /// <param name="cellRef">The cell to read.</param>
+    /// <returns>
+    /// The text last put into the cell, still in its original form, so a
+    /// formula comes back as the formula and not as its result. An empty
+    /// string if the cell was never filled in. This is what a formula bar
+    /// should show.
+    /// </returns>
     public string GetFormula(CellRef cellRef) => _workbook.TryGet(cellRef)?.RawInput ?? string.Empty;
 
     // ── Public API: undo / redo ────────────────────────────────────
 
-    /// <summary>True when at least one edit can be undone.</summary>
+    /// <summary>Gets a value indicating whether there is anything to undo.</summary>
+    /// <value>true if at least one operation can be undone; otherwise, false.</value>
     public bool CanUndo => _commandManager.CanUndo;
 
-    /// <summary>True when at least one undone edit can be reapplied.</summary>
+    /// <summary>Gets a value indicating whether there is anything to redo.</summary>
+    /// <value>true if at least one undone operation can be reapplied; otherwise, false.</value>
     public bool CanRedo => _commandManager.CanRedo;
 
-    /// <summary>
-    /// Reverses the most recent edit. The dependency graph is rebuilt
-    /// through the normal edit path, not from a cache.
-    /// </summary>
+    /// <summary>Reverses the most recent operation.</summary>
+    /// <returns>
+    /// Every cell whose value changed. Cells that read the ones put back are
+    /// brought up to date along with them. At least the last 100 operations
+    /// can be undone this way.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// There is nothing to undo. Check CanUndo first.
+    /// </exception>
     public CellChangeSet Undo() => _commandManager.Undo();
 
-    /// <summary>
-    /// Reapplies the most recently undone edit.
-    /// </summary>
+    /// <summary>Carries out the most recently undone operation again.</summary>
+    /// <returns>
+    /// Every cell whose value changed. Making a fresh edit discards anything
+    /// that was waiting to be redone.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// There is nothing to redo. Check CanRedo first.
+    /// </exception>
     public CellChangeSet Redo() => _commandManager.Redo();
 
     // ── Public API: data validation ────────────────────────────────
 
     /// <summary>
-    /// Attaches rule to cellRef. Every future edit to that cell must
-    /// produce a value satisfying rule, or the edit is rejected with
-    /// CellChangeSet.ValidationFailed. Replaces any rule already there.
-    /// Does not retroactively check the cell's current value.
+    /// Sets a rule that every future value of a cell must satisfy, replacing
+    /// any rule already on it.
     /// </summary>
+    /// <param name="cellRef">The cell to guard.</param>
+    /// <param name="rule">The rule its values must satisfy.</param>
+    /// <remarks>
+    /// The value already in the cell is not checked, so setting a rule never
+    /// turns an existing entry into an invalid one. Only edits made from now
+    /// on are judged against it.
+    /// </remarks>
     public void SetValidationRule(CellRef cellRef, IValidationRule rule) =>
         _validationRegistry.SetRule(cellRef, rule);
 
-    /// <summary>Removes any validation rule attached to cellRef. A no-op if none was set.</summary>
+    /// <summary>
+    /// Takes the validation rule off a cell. Clearing a cell that has no rule
+    /// is harmless.
+    /// </summary>
+    /// <param name="cellRef">The cell to stop guarding.</param>
     public void ClearValidationRule(CellRef cellRef) =>
         _validationRegistry.ClearRule(cellRef);
 
     // ── Public API: filtering (Group C feature) ─────────────────────
 
     /// <summary>
-    /// Attaches filter to (range, column), replacing any filter already
-    /// there. Filtering is a view operation: it never changes a cell's
-    /// value, formula, or the dependency graph — only which rows
-    /// GetVisibleRows reports. Recorded on the same undo stack as cell
-    /// edits.
+    /// Filters a range on one of its columns, replacing any filter already on
+    /// that column.
     /// </summary>
+    /// <param name="range">The range to filter.</param>
+    /// <param name="column">The column within that range to filter on.</param>
+    /// <param name="filter">The test a row's value must pass.</param>
+    /// <returns>
+    /// A successful result reporting no changed cells. Filtering decides only
+    /// which rows are worth showing; no value, formula or total is affected,
+    /// so a SUM over a filtered range still counts the hidden rows. The
+    /// filter can be undone like any other operation.
+    /// </returns>
     public CellChangeSet SetFilter(CellRange range, int column, IRowFilter filter) =>
         _commandManager.ExecuteCommand(new ApplyFilterCommand(_filterManager, range, column, filter));
 
-    /// <summary>Removes the filter at (range, column). A no-op if none was set.</summary>
+    /// <summary>Removes the filter from a column of a range.</summary>
+    /// <param name="range">The range to change.</param>
+    /// <param name="column">The column to stop filtering on.</param>
+    /// <returns>
+    /// A successful result reporting no changed cells. Clearing a filter that
+    /// was never set is harmless.
+    /// </returns>
     public CellChangeSet ClearFilter(CellRange range, int column) =>
         _commandManager.ExecuteCommand(new ApplyFilterCommand(_filterManager, range, column, null));
 
-    /// <summary>
-    /// Row numbers within range that satisfy every filter attached to
-    /// range (AND across columns), in ascending order.
-    /// </summary>
+    /// <summary>Returns which rows of a range are still worth showing.</summary>
+    /// <param name="range">The range to examine.</param>
+    /// <returns>
+    /// The row numbers that pass every filter set on the range, in ascending
+    /// order. A row must pass all of them, so filters on different columns
+    /// narrow the result together. A range with no filters gives all of its
+    /// rows.
+    /// </returns>
     public IReadOnlyList<int> GetVisibleRows(CellRange range) =>
         _filterManager.GetVisibleRows(range, _workbook);
 
     // ── Public API: sorting (Group C feature) ───────────────────────
 
-    /// <summary>
-    /// Sorts range's rows by keys (first key primary, later keys break
-    /// ties), moving whole rows — every column of range travels with
-    /// its row, not just the sort-key columns. hasHeader excludes
-    /// range's first row from reordering.
+    /// <summary>Reorders the rows of a range.</summary>
+    /// <param name="range">The range whose rows are to be reordered.</param>
+    /// <param name="keys">
+    /// The columns to sort on, most important first. Rows that tie on the
+    /// first are settled by the second, and so on. Every column must lie
+    /// within the range.
+    /// </param>
+    /// <param name="hasHeader">
+    /// true to leave the range's first row where it is; false to sort every
+    /// row.
+    /// </param>
+    /// <returns>
+    /// Every cell whose value changed. Whole rows travel together, so a row's
+    /// other columns stay alongside the value that was sorted on, and a
+    /// formula that moves has the references inside it shifted by the same
+    /// distance the row moved: a row carrying =A1+1 that moves from row 5 to
+    /// row 10 ends up holding =A6+1. Rows that tie on every key keep the
+    /// order they were already in.
     ///
-    /// A moved formula has every cell reference inside it translated by
-    /// that row's own move delta (RangeSorter Option B: Excel's actual
-    /// move semantics, not copy semantics — see SortRangeCommand). A
-    /// rejected write anywhere in the range (a validation rule, a
-    /// cycle introduced by the move) rolls back the entire sort, the
-    /// same all-or-nothing guarantee a single rejected edit gives.
-    /// Applied as one undoable operation and one batched recalculation.
-    /// </summary>
+    /// The sort is refused as a whole, leaving the range exactly as it was,
+    /// if any shifted reference would fall off the sheet, or if any of the
+    /// resulting values would break a validation rule or make a cell depend
+    /// on itself. The whole sort undoes as one operation.
+    /// </returns>
+    /// <exception cref="ArgumentNullException"><paramref name="keys"/> is null.</exception>
+    /// <exception cref="ArgumentException">
+    /// <paramref name="keys"/> is empty, or names a column outside the range.
+    /// </exception>
     public CellChangeSet SortRange(CellRange range, IReadOnlyList<SortKey> keys, bool hasHeader = false)
     {
         ArgumentNullException.ThrowIfNull(keys);
@@ -184,23 +242,29 @@ public sealed class CalculationEngine
     // ── Public API: batching (Group C feature support) ──────────────
 
     /// <summary>
-    /// Starts deferring recalculation: edits made through ApplyEdit
-    /// while a batch is open update the workbook and dependency graph
-    /// immediately (so cycle detection and validation still run per
-    /// edit) but do not recompute dependents or notify observers until
-    /// the matching EndBatch. Nestable — only the outermost EndBatch
-    /// triggers the recompute pass. Bulk operations like SortRange use
-    /// this so moving N cells costs one topological sort, not N.
+    /// Begins a run of edits that should settle together rather than one at a
+    /// time.
     /// </summary>
+    /// <remarks>
+    /// Edits made while a batch is open still take effect, and are still
+    /// checked for circular references and against validation rules, one by
+    /// one. What waits until the batch closes is bringing the rest of the
+    /// workbook up to date and telling observers about it, which then happens
+    /// once for the whole run instead of once per edit. Batches may be nested,
+    /// and each call must be matched by a call to EndBatch.
+    /// </remarks>
     public void BeginBatch() => _batchDepth++;
 
-    /// <summary>
-    /// Ends the innermost open batch. If this was the outermost
-    /// BeginBatch, recomputes every cell affected by any edit made
-    /// during the batch — in one topological pass — and raises one
-    /// change notification covering all of them.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">No batch is open.</exception>
+    /// <summary>Closes the innermost open batch.</summary>
+    /// <returns>
+    /// When this closes the last open batch, every cell whose value changed
+    /// over the whole run, reported to observers as a single change. When
+    /// batches are still open inside it, an empty result, since nothing has
+    /// settled yet.
+    /// </returns>
+    /// <exception cref="InvalidOperationException">
+    /// No batch is open, meaning this call has no matching BeginBatch.
+    /// </exception>
     public CellChangeSet EndBatch()
     {
         if (_batchDepth == 0)
@@ -234,12 +298,14 @@ public sealed class CalculationEngine
 
     // ── Public API: bulk recalculation ─────────────────────────────
 
-    /// <summary>
-    /// Recomputes every formula cell in the workbook from scratch, in
-    /// dependency order. Does not notify observers — this is a bulk
-    /// utility operation (e.g. after loading a workbook), not a single
-    /// client edit with one describable change set.
-    /// </summary>
+    /// <summary>Works out every formula in the workbook again from scratch.</summary>
+    /// <remarks>
+    /// Each formula is given values that are already up to date, so the
+    /// results are the same as if the whole workbook had been entered afresh.
+    /// Observers are not told about any of it: this is meant for moments such
+    /// as just after loading a file, where there is no single edit to report
+    /// and the client already knows to redraw everything.
+    /// </remarks>
     public void RecalculateAll()
     {
         var formulaCells = _workbook.AllCells()
@@ -258,10 +324,24 @@ public sealed class CalculationEngine
 
     // ── Public API: observer registration ──────────────────────────
 
-    /// <summary>Registers an observer for future change notifications.</summary>
+    /// <summary>
+    /// Signs an observer up to be told whenever cells change, so that a grid
+    /// can keep itself up to date without asking after every edit.
+    /// </summary>
+    /// <param name="observer">The observer to sign up.</param>
+    /// <remarks>
+    /// Signing the same observer up twice makes no difference; it is still
+    /// told once per change. Only changes made from now on are reported.
+    /// </remarks>
+    /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
     public void Subscribe(ICellObserver observer) => _notifier.Subscribe(observer);
 
-    /// <summary>Removes a previously registered observer.</summary>
+    /// <summary>
+    /// Stops telling an observer about changes. Removing one that was never
+    /// signed up is harmless.
+    /// </summary>
+    /// <param name="observer">The observer to remove.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="observer"/> is null.</exception>
     public void Unsubscribe(ICellObserver observer) => _notifier.Unsubscribe(observer);
 
     // ── Internal: the actual edit path ─────────────────────────────

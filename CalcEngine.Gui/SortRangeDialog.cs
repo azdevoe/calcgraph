@@ -4,7 +4,7 @@ namespace CalcEngine.Gui;
 
 /// <summary>
 /// Modal dialog for CalculationEngine.SortRange (Group C feature:
-/// Sorting &amp; Filtering) — picks a single sort column (within the
+/// Sorting and Filtering) — picks a single sort column (within the
 /// range the grid had selected), direction, and whether the range's
 /// first row is a header. No designer file, same approach as
 /// RangeRuleDialog: built entirely in code.
@@ -22,12 +22,28 @@ public sealed class SortRangeDialog : Form
 
     private readonly int _firstColumn;
 
-    /// <summary>Absolute column number (CellRef.Column) chosen to sort by.</summary>
+    /// <summary>
+    /// Gets the column the user chose to sort by, counting from 1 at column A.
+    /// Only meaningful once the user has accepted the dialog.
+    /// </summary>
     public int SelectedColumn { get; private set; }
 
+    /// <summary>
+    /// Gets a value indicating whether the user chose to sort lowest first.
+    /// </summary>
     public bool Ascending => _ascending.Checked;
+
+    /// <summary>
+    /// Gets a value indicating whether the user said the first row is a
+    /// header, which should stay where it is.
+    /// </summary>
     public bool HasHeader => _hasHeader.Checked;
 
+    /// <summary>Creates the dialog for a range the user has selected.</summary>
+    /// <param name="range">
+    /// The range about to be sorted. Only its columns are offered as choices,
+    /// so the user cannot pick one that lies outside it.
+    /// </param>
     public SortRangeDialog(CellRange range)
     {
         _firstColumn = range.TopLeft.Column;
@@ -65,7 +81,9 @@ public sealed class SortRangeDialog : Form
         CancelButton = cancelButton;
     }
 
-    /// <summary>1-based column number to A1-style letters — the same rule as CellRef.ToA1.</summary>
+    /// <summary>Turns a column number into the letters a user recognises.</summary>
+    /// <param name="column">The column number, counting from 1 at column A.</param>
+    /// <returns>The column letters, so 27 gives "AA".</returns>
     private static string ColumnLetter(int column)
     {
         var buf = new Stack<char>();

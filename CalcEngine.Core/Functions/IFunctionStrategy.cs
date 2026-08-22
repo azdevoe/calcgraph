@@ -11,18 +11,32 @@ namespace CalcEngine.Core.Functions;
 /// </summary>
 public interface IFunctionStrategy
 {
-    /// <summary>The function name, e.g. "SUM". Always uppercase.</summary>
+    /// <summary>
+    /// Gets the name that calls this function in a formula, such as "SUM".
+    /// Always upper case.
+    /// </summary>
     string Name { get; }
 
-    /// <summary>Fewest arguments this function accepts.</summary>
+    /// <summary>Gets the fewest arguments this function accepts.</summary>
     int MinArgs { get; }
 
-    /// <summary>Most arguments this function accepts. int.MaxValue for unbounded.</summary>
+    /// <summary>
+    /// Gets the most arguments this function accepts. Use int.MaxValue for a
+    /// function such as SUM that takes as many as you give it.
+    /// </summary>
     int MaxArgs { get; }
 
-    /// <summary>
-    /// Computes the function's result. Arity has already been validated
-    /// by FunctionFactory before this is called.
-    /// </summary>
+    /// <summary>Works out the function's result.</summary>
+    /// <param name="args">
+    /// The arguments to the call, given as expressions rather than values so
+    /// that a function such as IF can leave the branch it does not take
+    /// unevaluated. The count is already known to be within MinArgs and
+    /// MaxArgs.
+    /// </param>
+    /// <param name="context">Supplies the cell values the arguments read.</param>
+    /// <returns>
+    /// The function's result. A problem with the arguments comes back as an
+    /// error value rather than an exception.
+    /// </returns>
     CellValue Evaluate(IReadOnlyList<IExpression> args, IEvalContext context);
 }

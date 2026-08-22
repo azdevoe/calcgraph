@@ -15,17 +15,40 @@ public sealed class DependencyGraph
 
     private static readonly CellRef[] None = Array.Empty<CellRef>();
 
+    /// <summary>Returns the cells a given cell reads.</summary>
+    /// <param name="c">The cell to ask about.</param>
+    /// <returns>
+    /// The cells its formula reads, in no particular order. Empty if it reads
+    /// nothing, or holds no formula at all.
+    /// </returns>
     public IReadOnlyCollection<CellRef> PrecedentsOf(CellRef c)
         => precedents.TryGetValue(c, out var s) ? s : None;
 
+    /// <summary>Returns the cells that read a given cell.</summary>
+    /// <param name="c">The cell to ask about.</param>
+    /// <returns>
+    /// The cells whose formulas read it directly, in no particular order.
+    /// Cells that read it only through another cell are not included.
+    /// </returns>
     public IReadOnlyCollection<CellRef> DependentsOf(CellRef c)
         => dependents.TryGetValue(c, out var s) ? s : None;
 
     /// <summary>
-    /// Point `cell` at a new set of references. Returns null if accepted,
-    /// or the cycle path if the edit would close a loop — in which case the
-    /// previous edges are restored, so the graph is never left cyclic.
+    /// Records which cells a cell now reads, replacing whatever it read
+    /// before.
     /// </summary>
+    /// <param name="cell">The cell whose formula has changed.</param>
+    /// <param name="dependsOn">
+    /// The cells the new formula reads. Pass an empty sequence for a cell
+    /// that reads nothing.
+    /// </param>
+    /// <returns>
+    /// null if the change was accepted. If it would have made a cell depend
+    /// on itself, directly or through others, the change is refused and the
+    /// loop is returned instead, naming the cells in the order they lead
+    /// round with the starting cell appearing again at the end. The recorded
+    /// dependencies are left exactly as they were.
+    /// </returns>
     public IReadOnlyList<CellRef>? SetDependencies(CellRef cell, IEnumerable<CellRef> dependsOn)
     {
         var old = precedents.TryGetValue(cell, out var p)
@@ -45,6 +68,11 @@ public sealed class DependencyGraph
         return null;
     }
 
+    /// <summary>Reports whether any cell currently depends on itself.</summary>
+    /// <returns>
+    /// true if a loop exists anywhere; otherwise, false. A graph built only
+    /// through SetDependencies never has one.
+    /// </returns>
     public bool HasCycle()
     {
         foreach (var node in dependents.Keys)
@@ -52,17 +80,26 @@ public sealed class DependencyGraph
         return false;
     }
 
-    /// <summary>
-    /// One cycle reachable from `start`, in order, entry cell repeated at
-    /// the end: A1 -> B3 -> C7 -> A1. Null if there is none.
-    /// </summary>
+    /// <summary>Looks for a loop of dependencies leading out of a cell.</summary>
+    /// <param name="start">The cell to start from.</param>
+    /// <returns>
+    /// The cells that lead round the loop, in order, with the starting cell
+    /// appearing again at the end, as in A1, B3, C7, A1. null if there is no
+    /// loop.
+    /// </returns>
     public IReadOnlyList<CellRef>? FindCycle(CellRef start)
         => Walk(start, new HashSet<CellRef>(), new List<CellRef>());
 
     /// <summary>
-    /// Everything that must be recomputed when `cell` changes — direct and
-    /// indirect. Reverse BFS over dependents. Excludes `cell` itself.
+    /// Returns everything that has to be worked out again when a cell
+    /// changes.
     /// </summary>
+    /// <param name="cell">The cell that changed.</param>
+    /// <returns>
+    /// Every cell that reads it, whether directly or through other cells.
+    /// The cell itself is not included, and no cell appears twice even if
+    /// there is more than one route to it. 
+    /// </returns>
     public IReadOnlyList<CellRef> GetAffectedCells(CellRef cell)
     {
         var seen = new HashSet<CellRef>();
@@ -86,9 +123,15 @@ public sealed class DependencyGraph
     }
 
     /// <summary>
-    /// Orders `cells` so nothing is computed before what it reads.
-    /// Kahn's algorithm, restricted to the given set.
+    /// Puts a set of cells into an order where no cell comes before one it
+    /// reads.
     /// </summary>
+    /// <param name="cells">The cells to order. Duplicates are ignored.</param>
+    /// <returns>
+    /// The same cells, arranged so that no cell appears before another cell
+    /// in the set that it reads. Dependencies on cells outside the set place
+    /// no constraint on the order.
+    /// </returns>
     public IReadOnlyList<CellRef> TopologicalSort(IEnumerable<CellRef> cells)
     {
         var set = new HashSet<CellRef>(cells);
