@@ -19,11 +19,8 @@ Global
 		Debug|x64 = Debug|x64
 		Debug|x86 = Debug|x86
 		Release|Any CPU = Release|Any CPU
-<<<<<<< HEAD
-=======
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
->>>>>>> 5b844cb357ae6ced82427afe0994865854e3475b
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{4EC4719F-9997-4852-9702-D1B6E661E0B3}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
