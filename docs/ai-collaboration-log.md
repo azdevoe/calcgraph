@@ -57,7 +57,8 @@ alone is not enough to earn the marks this log is graded on.
 | 39 | 2026-08-31 | Abdulazeez | claude | Cell/Workbook/Observer/CalculationEngine facade + Command pattern; caught a namespace collision, an infinite-recursion risk, and an empty-undo edge case |
 | 40 | 2026-08-31 | Abdulazeez | claude | Data Validation feature; surfaced and fixed a latent CommandManager stack-desync bug it would have exposed |
 | 41 | 2026-08-31 | Abdulazeez | claude | WinForms GUI scaffolded; three real bugs found in testing, one of them a misdiagnosis worth logging on its own |
-| 42 | 2026=08-22 | Peter | Gemini | Evaluated project codebase to identify missing JSON persistence module; implemented WorkbookSerializer (SaveToJSON/LoadFromJSON) and CellDTO positional record; removed BeginBatch() wrapping from LoadFromJSON to ensure immediate synchronous formula evaluation upon loading.
+| 42 | 2026-08-22 | Peter | Gemini | Evaluated project codebase to identify missing JSON persistence module; implemented WorkbookSerializer (SaveToJSON/LoadFromJSON) and CellDTO positional record; removed BeginBatch() wrapping from LoadFromJSON to ensure immediate synchronous formula evaluation upon loading.
+| 43 | 2026-08-22 | Peter | Gemini | Created WorkbookSerializerTests in xUnit; debugged test failures by configuring UnsafeRelaxedJsonEscaping to preserve raw formula operators (+), adding [property: JsonPropertyName] attributes to CellDTO, and killing locked background testhost.exe processes to force fresh binary compilation (440/440 tests green).
 
 ---
 
