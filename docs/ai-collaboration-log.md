@@ -50,6 +50,13 @@ alone is not enough to earn the marks this log is graded on.
 | 32 | 2026-08-21 | William | Gemini | Asked for a complete LOOKUP function implementation. Gemini provided a full `LookupFunctionStrategy.cs` drop-in class implementing 1D vector extraction and approximate matching. The team rejected the code due to its structural assumptions about the codebase and requested architectural building blocks instead.|
 | 33 | 2026-08-21 | William | Gemini | Requested the architectural building blocks for LOOKUP instead of full code. Gemini outlined 5 fundamental components: the Strategy Contract, Evaluation Context and Range Extractor, Vector Shape Inspector, Strongly Typed Value Comparator, and an Approximate Match Search Algorithm.|
 | 34 | 2026-08-21 | William | Gemini | Pasted `Cell.cs` and asked to add missing XML comments. Gemini returned updated C# XML documentation, explicitly adding the required Abstraction Function (AF) and Representation Invariant (RI) clauses to the class remarks. The team fully adopted this specification.|
+| 35 | 2026-07-31 | Abdulazeez | claude | Asked for ANTLR setup guidance and a project roadmap; caught that the roadmap omitted git repo initialization needed for timestamped history |
+| 36 | 2026-08-02 | Abdulazeez | claude | Design Portfolio — first pass, then an audit caught a broken grammar, five missing ADT specs, a missing Observer pattern, and a Cell.Value : double that couldn't hold errors or text |
+| 37 | 2026-08-31 | Abdulazeez | claude | Foundation ADTs (CellRef, CellValue, DependencyGraph) built test-first, 44 tests green |
+| 38 | 2026-08-31 | Abdulazeez | claude | Grammar, expression tree, and function strategies; caught two test-first order violations and logged them |
+| 39 | 2026-08-31 | Abdulazeez | claude | Cell/Workbook/Observer/CalculationEngine facade + Command pattern; caught a namespace collision, an infinite-recursion risk, and an empty-undo edge case |
+| 40 | 2026-08-31 | Abdulazeez | claude | Data Validation feature; surfaced and fixed a latent CommandManager stack-desync bug it would have exposed |
+| 41 | 2026-08-31 | Abdulazeez | claude | WinForms GUI scaffolded; three real bugs found in testing, one of them a misdiagnosis worth logging on its own |
 
 ---
 
@@ -257,3 +264,85 @@ directly and found no discrepancy, unlike entries 5 and 6.
 balance — this log should show what was checked and held up, not only
 what was checked and broke. A log containing only rejections would be
 just as unrepresentative as one containing none.
+
+
+35 — ANTLR setup and project roadmap
+
+Asked for: whether ANTLR needed to be installed on the system or added as a project dependency, and a rough roadmap for the CalcEngine project split into stages.
+
+Got: a two-part answer (NuGet runtime package Antlr4.Runtime.Standard for the code, plus Antlr4.CodeGenerator for build-time .g4 compilation, avoiding a separate Java install) and a full staged roadmap covering grammar, class diagrams, ADT specs, and implementation order.
+
+Changed: the roadmap as given had no step for initializing the git repository. This was flagged back to Claude directly ("you forgot to add creating a repo so it will have time stamps"), and the missing step was added before any other work started — repo init, first commit, and a plan to commit each design artifact separately so the git history would show design-first-then-code, not everything landing in one commit at the end.
+
+Why: the brief requires git history to demonstrate the project was built progressively rather than assembled and backdated. A roadmap that skips the one step that produces that evidence would have meant losing marks for a reason that had nothing to do with the actual engineering. Catching it before writing any code was cheap; catching it after would not have been.
+
+36 — Design Portfolio: first pass and audit
+
+Asked for: the 20-mark Design Portfolio deliverable — formal ANTLR grammar, UML class diagrams, and ADT specifications (abstraction functions and representation invariants).
+
+Got: an initial draft, followed later by a full audit pass that surfaced it was significantly incomplete: abstraction functions and representation invariants were missing for five ADTs (Expression Tree, DependencyGraph, Workbook, CommandManager, CellValue); the grammar was missing the =, <>, <=, >= operators and had no entry rule or whitespace rule; only 4 of the 8 required functions were specified; the Observer pattern and its sequence diagrams were absent entirely; and Cell.Value was typed as a bare double, which cannot represent an error state or a text value.
+
+Changed: all of the above were fixed in a rebuilt portfolio. Separately, the HasCycle ADT spec initially carried a precondition that SetDependencies must have been called at least once first. This was checked against the actual behaviour rather than accepted — HasCycle on an empty graph just returns false, no cycle, trivially — so the precondition was dropped and the spec corrected to Requires: True.
+
+Also logged as friction rather than worked around silently: default phrasing repeatedly needed redirecting toward shorter, plainer sentences, and the model repeatedly stopped at optional-sounding checkpoints ("want to stop here?") instead of producing the finished document, requiring several explicit follow-ups before the actual .docx — not a description of one — was delivered.
+
+Why: a portfolio missing half its required ADT specs and a quarter of its grammar would have been graded as incomplete regardless of how good the parts that existed were, so the audit pass mattered as much as the original draft. The HasCycle precondition is the same category of error as later entries in this log — an invariant that reads plausibly but doesn't match the code — caught by checking, not trusting the draft.
+
+37 — Foundation ADTs: CellRef, CellValue, DependencyGraph
+
+Asked for: the first implementation units, test-first: CellRef (bijective base-26 A1-notation parsing), CellValue (an immutable 5-state tagged union with a private constructor and factory methods), and DependencyGraph (mirrored precedents/dependents adjacency maps, cycle detection returning the exact cycle path, affected-cells lookup via reverse BFS, topological sort via Kahn's algorithm).
+
+Got: all three, reaching 44 passing tests, built one unit at a time with a test: commit before each feat: commit.
+
+Changed: nothing rejected in this session specifically — the notable output was process discipline imposed on how work got delivered: complete files to copy rather than diffs, one unit at a time rather than several at once, no rebasing of pushed commits, and dotnet test run and confirmed green before every commit.
+
+Why: logged deliberately as a clean entry, for the same reason entry 7 in this log exists — a log of only corrections would misrepresent how much of the collaboration just worked. The process rules set here (test-first commit ordering, no history rewrites) became the standard the rest of the project was held to, including the violations caught in entry 38.
+
+38 — Grammar, expression tree, and function strategies
+
+Asked for: the ANTLR grammar matching the Design Portfolio's grammar sections exactly, the full IExpression hierarchy (8 node types implementing Composite + Interpreter), ExpressionTreeBuilder, DependencyVisitor for dependency extraction, and the 8 required functions (SUM, AVERAGE, MIN, MAX, COUNT, IF, ROUND, LOOKUP) as Strategy + Factory.
+
+Got: all of it — grammar verified against 23/23 parse tests, the full expression hierarchy, and all 8 function strategies. Test suite grew from 44 to 126.
+
+Changed: caught Claude delivering a working implementation file before its matching test file, twice, breaking the test-first ordering that entry 37 had established. Both were flagged in the moment rather than let slide, written up as entries in a separate AI Critique Log, and the correct order (test commit, confirm red, then implementation commit) was re-enforced for the rest of the session.
+
+Why: the whole point of the test-first commit ordering is that the git history itself is graded evidence of test-first development — an implementation committed ahead of its test doesn't just violate a preference, it quietly falsifies the evidence the rubric is checking for. Catching both instances and logging them (rather than fixing the commit order silently) keeps that evidence honest.
+
+39 — Cell/Workbook/Observer/CalculationEngine facade + Command pattern
+
+Asked for: the remaining core units built one at a time, test-first: Cell, Workbook (sparse dictionary storage + IEvalContext), the Observer pipeline (CellChangeSet, ICellObserver, ChangeNotifier), the ANTLR error-handling wrapper (ErrorCollector, FormulaParseResult, a formula-input parser), the CalculationEngine facade, and finally ICommand/SetCellCommand/ CommandManager for undo-redo.
+
+Got: all six units, tests climbing 126 → 180 → 209 → 241 → 245 → 278 → 317 (329 after later fixes).
+
+Changed: four separate issues caught during this session, not after:
+
+a hand-written class named FormulaParser collided with the ANTLR-generated CalcEngine.Core.Generated.FormulaParser. A using alias inside the new file protected only that file — it didn't protect ExpressionTreeBuilder.cs, which referenced the generated type by bare name in the same namespace and broke with 17 CS0426 errors, because C# resolves a bare type name against the current namespace before it even looks at using imports. Fixed by renaming to FormulaInputParser, with a rule written down afterward: grep the whole repo for a new class name before using it, not just check the new file.
+SetCellCommand.Execute() couldn't call the public SetCellContent(), because that method now itself routes through CommandManager — calling it from inside a command would recurse indefinitely. Built to call the internal ApplyEdit() directly instead.
+Undo() on an edit that started from an empty cell can't route through SetCellContent(""), because the grammar rejects an empty string as valid input. Caught during design and routed through ClearCell() instead.
+a first integration attempt failed to compile because only some of the four new Command files had been copied into CalcEngine.Core/; fixed by making sure all four landed together before rebuilding.
+
+Why: the first three are bugs that wouldn't have shown up in a first happy-path test — they'd have surfaced as a build break in an unrelated file, a stack overflow the first time a command actually executed, or a crash the first time anyone undid an edit on a previously-empty cell. Catching them at design time, before the recursive call or the bad namespace collision ever ran, meant none of them had to be debugged blind later.
+
+40 — Data Validation and a latent CommandManager bug
+
+Asked for: the Data Validation feature (Group C) — ValidationResult, IValidationRule, RangeRule, ListRule, TypeRule, CustomFormulaRule, ValidationRegistry, wired into CalculationEngine.ApplyEdit — test-first, same discipline as before.
+
+Got: the full feature, and mid-session, a pre-existing bug in CommandManager was surfaced: ExecuteCommand, Undo, and Redo were pushing and popping the undo/redo stacks unconditionally, regardless of whether the underlying edit had actually succeeded.
+
+Changed: added a result.Success guard across all three CommandManager methods, verified with four new tests. Also added a distinct CellChangeSet.ValidationFailed case (a new ChangeFailureReason enum) instead of reusing the existing ParseFailure case, so the GUI can tell a validation rejection apart from a syntax error. 375 tests green after both changes.
+
+Why: the stack bug had been harmless up to this point because every prior edit either parsed successfully or failed to parse — there was no "parsed fine, then got rejected anyway" case yet. Data Validation makes that case the normal one, so the bug would have started desyncing CanUndo/CanRedo from the real workbook state on essentially every declined edit if it had shipped un-fixed. It was existing latent risk that this feature was specifically going to trigger, not a new bug this feature introduced.
+
+41 — GUI scaffolding (CalcEngine.Gui)
+
+Asked for: a WinForms GUI — a grid, formula bar, undo/redo buttons, a status bar for error messages, a right-click menu to attach a RangeRule to a cell, wired to the engine through the existing Observer pattern rather than polling for changes.
+
+Got: a CalcEngine.Gui project with a 100-row × 26-column DataGridView grid and all of the above.
+
+Changed: three real bugs found during manual testing, not in the first-draft code:
+
+right-click didn't move CurrentCell before the context-menu handler ran, so a validation rule got attached to whatever cell was previously selected, not the one actually right-clicked.
+Controls.Add ordering hid the status bar behind the grid.
+header text appeared blank in a way that looked like a DataGridView rendering bug; the actual cause was a stale build, not incorrect code. This misdiagnosis was written up separately in the AI Critique Log rather than just quietly fixed and forgotten.
+
+Why: the first two are the ordinary cost of wiring a UI to underlying state — worth logging as concrete, reproducible bugs with a named cause, not vague "polish." The third is worth logging for a different reason: the first diagnosis (a framework rendering quirk) sounded technically plausible and was wrong, and the actual fix — a rebuild — was far simpler than the theory. It's a reminder to rule out "did the code even rebuild" before reasoning about deeper causes.
